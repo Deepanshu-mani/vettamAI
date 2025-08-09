@@ -15,6 +15,9 @@ interface EditorHeaderProps {
 
 export const EditorHeader: React.FC<EditorHeaderProps> = ({
   editor,
+  wordCount,
+  charCount,
+  pageCount,
   onExport,
   onPrint,
   onPageBreak,
@@ -46,10 +49,7 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
             />
           </div>
         </div>
-      </div>
-    </header>
-  );
-};
+        <div className="mt-3 md:hidden">
           <div className="grid grid-cols-[auto,1fr,auto] items-center gap-3">
             {/* Center: Toolbar (wraps to two lines if needed) */}
             <div className="flex justify-center">
