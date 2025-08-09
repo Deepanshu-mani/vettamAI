@@ -21,13 +21,13 @@ export const EditorActions: React.FC<EditorActionsProps> = ({
   }> = ({ onClick, title, icon, label }) => (
     <button
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-gray-900 border border-transparent hover:border-gray-200"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-gray-700 hover:text-gray-900 border border-transparent hover:border-gray-200"
       title={title}
       aria-label={title}
       type="button"
     >
       {icon}
-      <span className="text-[12px] leading-none">{label}</span>
+      <span className="text-xs font-medium">{label}</span>
     </button>
   )
 

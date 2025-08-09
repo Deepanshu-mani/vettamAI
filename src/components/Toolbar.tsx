@@ -38,7 +38,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
   }, [editor])
 
   const btnBase =
-    "inline-flex items-center justify-center rounded-lg border border-transparent px-3 py-1.5 text-base font-medium bg-[#f9f9f9] cursor-pointer transition-colors duration-200 hover:bg-gray-100"
+    "inline-flex items-center justify-center rounded-md border border-transparent px-2 py-1.5 text-sm font-medium bg-white hover:bg-gray-50 cursor-pointer transition-colors duration-150 border-gray-200"
 
   const onOpenHighlight = (e: React.MouseEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
@@ -94,9 +94,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
 
   return (
   
-    <div className="relative w-full">
+    <div className="relative">
       <div
-        className="flex flex-wrap items-center justify-center gap-2 p-1 bg-white rounded-lg"
+        className="flex flex-wrap items-center justify-center gap-1 p-1 bg-gray-50 rounded-lg border border-gray-200"
         role="toolbar"
         aria-label="Editor toolbar"
       >

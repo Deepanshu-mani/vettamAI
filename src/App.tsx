@@ -1,7 +1,11 @@
-import { ProfessionalEditor } from "./components/ProfessionalEditor"
+import { Editor } from "./components/Editor"
+import { TrashProvider } from "./context/TextContext"
+
 const App = () => {
   return (
-    <ProfessionalEditor />
+    <TrashProvider>
+      <Editor />
+    </TrashProvider>
   )
 }
 

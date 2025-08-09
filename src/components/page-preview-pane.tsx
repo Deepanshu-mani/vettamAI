@@ -33,18 +33,21 @@ export const PagePreviewPane: React.FC<PagePreviewPaneProps> = ({
   }, [html])
 
   return (
-    <aside className="hidden xl:block w-[300px] shrink-0 border-l border-gray-200 bg-white">
+    <aside className="hidden xl:block w-[280px] shrink-0 border-l border-gray-200 bg-white shadow-sm">
       <div className="sticky top-0 h-screen overflow-auto p-4 space-y-6">
-        <div className="text-sm font-medium text-gray-700">Preview</div>
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold text-gray-900">Page Preview</div>
+          <div className="text-xs text-gray-500">{pages.length} pages</div>
+        </div>
         {pages.map((content, idx) => (
-          <div key={idx} className="mx-auto w-[220px]">
+          <div key={idx} className="group cursor-pointer">
             <div
-              className="relative bg-white shadow rounded"
+              className="relative bg-white shadow-sm rounded border border-gray-200 hover:shadow-md transition-shadow"
               style={{
                 width: "8.27in",
                 minHeight: "11.69in",
                 boxSizing: "border-box",
-                transform: "scale(0.22)",
+                transform: "scale(0.25)",
                 transformOrigin: "top left",
               }}
             >
@@ -78,6 +81,9 @@ export const PagePreviewPane: React.FC<PagePreviewPaneProps> = ({
                   Page {idx + 1} of {pages.length}
                 </div>
               )}
+            </div>
+            <div className="text-xs text-gray-500 text-center mt-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              Page {idx + 1}
             </div>
           </div>
         ))}
