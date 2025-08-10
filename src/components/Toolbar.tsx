@@ -96,15 +96,29 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
   
     <div className="relative">
       <div
-        className="flex flex-wrap items-center justify-center gap-1 p-1 bg-gray-50 rounded-lg border border-gray-200"
+        className="flex flex-wrap items-center justify-center gap-1 p-2 bg-gray-50 rounded-lg border border-gray-300 shadow-sm"
         role="toolbar"
         aria-label="Editor toolbar"
       >
         {/* History */}
-        <button className={btnBase} onClick={() => editor.chain().focus().undo().run()} title="Undo (Ctrl+Z)" aria-label="Undo" type="button">
+        <button 
+          className={`${btnBase} ${!editor.can().undo() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().undo().run()} 
+          disabled={!editor.can().undo()}
+          title="Undo (Ctrl+Z)" 
+          aria-label="Undo" 
+          type="button"
+        >
           <Undo size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().redo().run()} title="Redo (Ctrl+Y)" aria-label="Redo" type="button">
+        <button 
+          className={`${btnBase} ${!editor.can().redo() ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().redo().run()} 
+          disabled={!editor.can().redo()}
+          title="Redo (Ctrl+Y)" 
+          aria-label="Redo" 
+          type="button"
+        >
           <Redo size={18} />
         </button>
 
@@ -114,30 +128,30 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
         <select
           value={headingValue}
           onChange={(e) => applyHeading(e.target.value)}
-          className="h-9 px-2.5 border border-gray-300 rounded-md bg-white text-sm text-gray-900"
+          className="h-9 px-3 border border-gray-300 rounded-md bg-white text-sm text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
           aria-label="Text style"
         >
-          <option value="p">P</option>
-          <option value="h1">H1</option>
-          <option value="h2">H2</option>
-          <option value="h3">H3</option>
-          <option value="h4">H4</option>
-          <option value="h5">H5</option>
-          <option value="h6">H6</option>
+          <option value="p">Paragraph</option>
+          <option value="h1">Heading 1</option>
+          <option value="h2">Heading 2</option>
+          <option value="h3">Heading 3</option>
+          <option value="h4">Heading 4</option>
+          <option value="h5">Heading 5</option>
+          <option value="h6">Heading 6</option>
         </select>
 
         {/* Font size */}
         <select
           value={currentFontSize}
           onChange={(e) => applyFontSize(e.target.value)}
-          className="h-9 px-2.5 border border-gray-300 rounded-md bg-white text-sm text-gray-900"
+          className="h-9 px-3 border border-gray-300 rounded-md bg-white text-sm text-gray-900 font-medium focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
           aria-label="Font size"
           title="Font size"
         >
-          <option value="">Size</option>
+          <option value="">Default Size</option>
           {FONT_SIZES.map((s) => (
             <option key={s.value} value={s.value}>
-              {s.label}
+              {s.label}pt
             </option>
           ))}
         </select>
@@ -145,55 +159,133 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
         <ToolbarSeparator />
 
         {/* Lists */}
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleBulletList().run()} aria-label="Bullet list" title="Bullet List" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive('bulletList') ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().toggleBulletList().run()} 
+          aria-label="Bullet list" 
+          title="Bullet List" 
+          type="button"
+        >
           <List size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleOrderedList().run()} aria-label="Numbered list" title="Numbered List" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive('orderedList') ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().toggleOrderedList().run()} 
+          aria-label="Numbered list" 
+          title="Numbered List" 
+          type="button"
+        >
           <ListOrdered size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleTaskList().run()} aria-label="Task list" title="Task List" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive('taskList') ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().toggleTaskList().run()} 
+          aria-label="Task list" 
+          title="Task List" 
+          type="button"
+        >
           <ListTodo size={18} />
         </button>
 
         <ToolbarSeparator />
 
         {/* Inline formatting */}
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleBold().run()} aria-label="Bold" title="Bold (Ctrl+B)" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive('bold') ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().toggleBold().run()} 
+          aria-label="Bold" 
+          title="Bold (Ctrl+B)" 
+          type="button"
+        >
           <Bold size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleItalic().run()} aria-label="Italic" title="Italic (Ctrl+I)" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive('italic') ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().toggleItalic().run()} 
+          aria-label="Italic" 
+          title="Italic (Ctrl+I)" 
+          type="button"
+        >
           <Italic size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleUnderline().run()} aria-label="Underline" title="Underline (Ctrl+U)" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive('underline') ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().toggleUnderline().run()} 
+          aria-label="Underline" 
+          title="Underline (Ctrl+U)" 
+          type="button"
+        >
           <Underline size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleStrike().run()} aria-label="Strikethrough" title="Strikethrough" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive('strike') ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().toggleStrike().run()} 
+          aria-label="Strikethrough" 
+          title="Strikethrough" 
+          type="button"
+        >
           <Strikethrough size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleCode().run()} aria-label="Inline code" title="Inline Code" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive('code') ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().toggleCode().run()} 
+          aria-label="Inline code" 
+          title="Inline Code" 
+          type="button"
+        >
           <Code size={18} />
         </button>
 
         <ToolbarSeparator />
 
         {/* Highlight palette */}
-        <button className={btnBase} onClick={onOpenHighlight} aria-label="Highlight" title="Highlight" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive('highlight') ? 'bg-yellow-100 text-yellow-700 border-yellow-300' : 'hover:bg-yellow-50'}`} 
+          onClick={onOpenHighlight} 
+          aria-label="Highlight" 
+          title="Highlight" 
+          type="button"
+        >
           <Highlighter size={18} />
         </button>
 
         <ToolbarSeparator />
 
         {/* Alignment */}
-        <button className={btnBase} onClick={() => editor.chain().focus().setTextAlign("left").run()} aria-label="Align left" title="Align Left" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive({ textAlign: 'left' }) ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().setTextAlign("left").run()} 
+          aria-label="Align left" 
+          title="Align Left" 
+          type="button"
+        >
           <AlignLeft size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().setTextAlign("center").run()} aria-label="Align center" title="Align Center" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive({ textAlign: 'center' }) ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().setTextAlign("center").run()} 
+          aria-label="Align center" 
+          title="Align Center" 
+          type="button"
+        >
           <AlignCenter size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().setTextAlign("right").run()} aria-label="Align right" title="Align Right" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive({ textAlign: 'right' }) ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().setTextAlign("right").run()} 
+          aria-label="Align right" 
+          title="Align Right" 
+          type="button"
+        >
           <AlignRight size={18} />
         </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().setTextAlign("justify").run()} aria-label="Justify" title="Justify" type="button">
+        <button 
+          className={`${btnBase} ${editor.isActive({ textAlign: 'justify' }) ? 'bg-blue-100 text-blue-700 border-blue-300' : 'hover:bg-blue-50'}`} 
+          onClick={() => editor.chain().focus().setTextAlign("justify").run()} 
+          aria-label="Justify" 
+          title="Justify" 
+          type="button"
+        >
           <AlignJustify size={18} />
         </button>
 
@@ -201,7 +293,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
 
         {/* Insert */}
         <button
-          className={btnBase}
+          className={`${btnBase} hover:bg-green-50`}
           onClick={() => {
             const url = window.prompt("Enter URL:")
             if (url) editor.chain().focus().setLink({ href: url }).run()
@@ -214,7 +306,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
         </button>
 
         <button
-          className={btnBase}
+          className={`${btnBase} hover:bg-green-50`}
           onClick={() => {
             const url = window.prompt("Enter image URL:")
             if (url) editor.chain().focus().setImage({ src: url }).run()
@@ -227,7 +319,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
         </button>
 
         <button
-          className={btnBase}
+          className={`${btnBase} hover:bg-green-50`}
           onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
           aria-label="Add table"
           title="Add Table"
