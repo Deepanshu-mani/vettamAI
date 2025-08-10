@@ -48,7 +48,6 @@ export const Editor = (): ReactElement => {
   const { setOnDropDelete } = useContext(TrashContext);
 
   const pageShellRef = useRef<HTMLDivElement | null>(null);
-  const pageInnerRef = useRef<HTMLDivElement | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -139,7 +138,6 @@ export const Editor = (): ReactElement => {
       setCharCount(text.length);
       const estimatedPages = Math.max(1, Math.ceil(words / 350));
       setPageCount(estimatedPages);
-      debouncedRepaginateRef.current();
     },
     editorProps: {
       attributes: {
@@ -176,97 +174,6 @@ export const Editor = (): ReactElement => {
     })
     return () => setOnDropDelete(null)
   }, [editor])
-
-  // Simple debounce
-  const debounce = (fn: () => void, delay = 150) => {
-    let t: number | undefined;
-    return () => {
-      if (t) window.clearTimeout(t);
-      t = window.setTimeout(fn, delay);
-    };
-  };
-
-  const isPaginatingRef = useRef(false);
-  const debouncedRepaginateRef = useRef<() => void>(() => {});
-
-  const repaginate = useCallback(() => {
-    if (!editor || !pageInnerRef.current) return;
-    if (isPaginatingRef.current) return;
-    isPaginatingRef.current = true;
-
-    const view = editor.view;
-    const root = view.dom as HTMLElement;
-
-    const pxPerInch = 96;
-    const pageHeightPx = Math.round(11.69 * pxPerInch) - 128; // Account for header/footer
-
-    // Remove existing auto page breaks
-    editor.commands.command(({ state, tr }) => {
-      const type = state.schema.nodes["pageBreak"];
-      let removed = false;
-      state.doc.descendants((node, pos) => {
-        if (node.type === type && node.attrs?.auto) {
-          tr.delete(pos, pos + node.nodeSize);
-          removed = true;
-        }
-      });
-      if (removed) {
-        tr.setMeta("addToHistory", false);
-        view.dispatch(tr);
-      }
-      return true;
-    });
-
-    // Measure blocks and insert auto breaks
-    const children = Array.from(root.children) as HTMLElement[];
-    let acc = 0;
-    const toInsert: { pos: number }[] = [];
-
-    for (const el of children) {
-      if (el.getAttribute("data-type") === "page-break") {
-        acc = 0;
-        continue;
-      }
-
-      const h = el.offsetHeight;
-      if (acc + h > pageHeightPx) {
-        try {
-          const pos = (view as any).posAtDOM(el, 0);
-          toInsert.push({ pos });
-          acc = h;
-        } catch {
-          acc += h;
-        }
-      } else {
-        acc += h;
-      }
-    }
-
-    if (toInsert.length) {
-      for (let i = toInsert.length - 1; i >= 0; i--) {
-        const { pos } = toInsert[i];
-        editor.commands.insertContentAt(
-          pos,
-          { type: "pageBreak", attrs: { auto: true } },
-          { updateSelection: false }
-        );
-      }
-    }
-
-    isPaginatingRef.current = false;
-  }, [editor]);
-
-  useEffect(() => {
-    debouncedRepaginateRef.current = debounce(repaginate, 200);
-  }, [repaginate]);
-
-  useEffect(() => {
-    if (!editor) return;
-    repaginate();
-    const onResize = () => debouncedRepaginateRef.current();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [editor, repaginate]);
 
   const handlePrint = () => {
     window.print();
@@ -528,51 +435,9 @@ export const Editor = (): ReactElement => {
                 </div>
               </div>
 
-              {/* Professional Document Page */}
-              <div
-                ref={pageShellRef}
-                className="mx-auto bg-white shadow-xl rounded-lg overflow-visible border border-gray-300"
-                style={{
-                  width: "8.27in",
-                  minHeight: "11.69in",
-                  boxSizing: "border-box",
-                }}
-              >
-                {/* Professional Header */}
-                {headerEnabled && (
-                  <div
-                    className={`px-8 pt-8 pb-4 text-sm text-gray-800 border-b border-gray-200 bg-gray-50 ${
-                      headerAlign === "start" ? "text-left" : headerAlign === "end" ? "text-right" : "text-center"
-                    }`}
-                    style={{ minHeight: "0.75in" }}
-                  >
-                    <div className="font-medium" dangerouslySetInnerHTML={{ __html: headerHtml }} />
-                  </div>
-                )}
-
-                <div ref={pageInnerRef} className="p-8" style={{ minHeight: "9.5in" }}>
-                  <EditorContent
-                    editor={editor}
-                    className="min-h-[8.5in] focus-within:outline-none prose prose-lg max-w-none"
-                  />
-                </div>
-
-                {/* Professional Footer */}
-                {footerEnabled && (
-                  <div
-                    className={`relative px-8 pt-4 pb-8 text-sm text-gray-800 border-t border-gray-200 bg-gray-50 ${
-                      footerAlign === "start" ? "text-left" : footerAlign === "end" ? "text-right" : "text-center"
-                    }`}
-                    style={{ minHeight: "0.75in" }}
-                  >
-                    <div className="font-medium" dangerouslySetInnerHTML={{ __html: footerHtml }} />
-                    {showPageNumbers && (
-                      <div className="absolute right-8 bottom-4 text-gray-600 text-xs font-medium">
-                        Page 1
-                      </div>
-                    )}
-                  </div>
-                )}
+              {/* Paginated view */}
+              <div ref={pageShellRef} className="page-container p-8">
+                <EditorContent editor={editor} />
               </div>
             </div>
           </main>
@@ -631,12 +496,23 @@ export const Editor = (): ReactElement => {
         }
 
         /* Professional Editor Styles */
+        .page-container {
+          background-color: #f0f0f0;
+        }
         .ProseMirror { 
           outline: none; 
           line-height: 1.6; 
           font-family: 'Times New Roman', Times, serif;
           font-size: 12pt;
           color: #1a1a1a;
+          background: white;
+          width: 8.27in;
+          min-height: calc(11.69in * 3);
+          padding: 1in;
+          margin: 1rem auto;
+          box-shadow: 0 1px 3px rgba(0,0,0,.1);
+          background-image: linear-gradient(to bottom, transparent calc(11.69in - 1px), #ccc calc(11.69in - 1px), #ccc 11.69in);
+          background-size: 100% 11.69in;
         }
         
         .ProseMirror p { margin: 1em 0; }
