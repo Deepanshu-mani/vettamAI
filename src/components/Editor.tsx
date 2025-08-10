@@ -176,7 +176,145 @@ export const Editor = (): ReactElement => {
   }, [editor])
 
   const handlePrint = () => {
-    window.print();
+    if (!editor) return;
+
+    const html = editor.getHTML();
+    const parts = html.split(/<div[^>]*data-type="page-break"[^>]*><\/div>/gi);
+    const total = parts.length;
+
+    const alignToStyle = (a: Align) =>
+      a === "start" ? "text-align:left" : a === "end" ? "text-align:right" : "text-align:center"
+
+    const pageHtml = parts
+      .map((content, i) => `
+        <div class="page">
+          ${headerEnabled ? `<div class="page-header" style="${alignToStyle(headerAlign)}">${headerHtml}</div>` : ""}
+          <div class="page-body">${content}</div>
+          ${footerEnabled ? `<div class="page-footer" style="${alignToStyle(footerAlign)}">${footerHtml}</div>` : ""}
+          ${showPageNumbers ? `<div class="page-num">Page ${i + 1} of ${total}</div>` : ""}
+        </div>
+      `)
+      .join("");
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Legal Document</title>
+          <meta charset="utf-8">
+          <style>
+            :root { --page-w: 8.27in; --page-h: 11.69in; }
+            body {
+              font-family: 'Times New Roman', Times, serif;
+              line-height: 1.6;
+              margin: 0;
+              padding: 0;
+              color: #000;
+              background: #fff;
+            }
+            .page {
+              width: var(--page-w);
+              height: var(--page-h);
+              margin: 0;
+              background: white;
+              position: relative;
+              display: flex;
+              flex-direction: column;
+              page-break-after: always;
+            }
+            .page:last-child {
+              page-break-after: avoid;
+            }
+            .page-header, .page-footer {
+              padding: 0.75in 1in;
+              color: #333;
+              font-size: 11pt;
+            }
+            .page-header {
+              min-height: 0.75in;
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .page-footer {
+              min-height: 0.75in;
+              display: flex;
+              align-items: center;
+              border-top: 1px solid #e5e7eb;
+              margin-top: auto;
+            }
+            .page-body {
+              padding: 0 1in;
+              flex: 1;
+              font-size: 12pt;
+              line-height: 1.5;
+            }
+            .page-num {
+              position: absolute;
+              right: 1in;
+              bottom: 0.5in;
+              color: #666;
+              font-size: 10pt;
+            }
+            h1, h2, h3, h4, h5, h6 {
+              margin-top: 1.5em;
+              margin-bottom: 0.5em;
+              font-weight: bold;
+            }
+            h1 { font-size: 18pt; }
+            h2 { font-size: 16pt; }
+            h3 { font-size: 14pt; }
+            p { margin: 1em 0; }
+            ul, ol { margin: 1em 0; padding-left: 1.5em; }
+            li { margin: 0.25em 0; }
+            blockquote {
+              border-left: 4px solid #ccc;
+              padding-left: 1em;
+              margin: 1.5em 0;
+              font-style: italic;
+            }
+            table {
+              border-collapse: collapse;
+              width: 100%;
+              margin: 1em 0;
+            }
+            th, td {
+              border: 1px solid #333;
+              padding: 0.5em;
+              text-align: left;
+            }
+            th { background: #f5f5f5; font-weight: bold; }
+            @page {
+              size: A4;
+              margin: 0;
+            }
+          </style>
+        </head>
+        <body>
+          ${pageHtml}
+        </body>
+      </html>
+    `;
+
+    const printIframe = document.createElement('iframe');
+    printIframe.style.position = 'absolute';
+    printIframe.style.width = '0';
+    printIframe.style.height = '0';
+    printIframe.style.border = '0';
+    document.body.appendChild(printIframe);
+
+    const doc = printIframe.contentWindow?.document;
+    if (doc) {
+      doc.open();
+      doc.write(htmlContent);
+      doc.close();
+      printIframe.contentWindow?.focus();
+      printIframe.contentWindow?.print();
+    }
+
+    setTimeout(() => {
+      document.body.removeChild(printIframe);
+    }, 1000);
   };
 
   const handleExport = () => {
@@ -362,76 +500,80 @@ export const Editor = (): ReactElement => {
           <main className="flex-1 overflow-auto">
             <div className="max-w-5xl mx-auto py-8 px-4">
               {/* Professional Header/Footer controls */}
-              <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="mb-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6 print:hidden">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Document Settings</h3>
-                
-                <div className="space-y-4">
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={headerEnabled}
-                        onChange={(e) => setHeaderEnabled(e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2"
-                      />
-                      Document Header
-                    </label>
-                    <div className="flex items-center gap-2">
-                      {alignBtn(headerAlign, "start", setHeaderAlign, "Left", <AlignLeft size={16} />)}
-                      {alignBtn(headerAlign, "center", setHeaderAlign, "Center", <AlignCenter size={16} />)}
-                      {alignBtn(headerAlign, "end", setHeaderAlign, "Right", <AlignRight size={16} />)}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Header Settings */}
+                    <div className="space-y-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <input
+                                type="checkbox"
+                                checked={headerEnabled}
+                                onChange={(e) => setHeaderEnabled(e.target.checked)}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span>Document Header</span>
+                        </label>
+                        <input
+                            value={headerHtml}
+                            onChange={(e) => setHeaderHtml(e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter header text"
+                            disabled={!headerEnabled}
+                        />
+                        <div className="flex items-center gap-2">
+                            {alignBtn(headerAlign, "start", setHeaderAlign, "Left", <AlignLeft size={16} />)}
+                            {alignBtn(headerAlign, "center", setHeaderAlign, "Center", <AlignCenter size={16} />)}
+                            {alignBtn(headerAlign, "end", setHeaderAlign, "Right", <AlignRight size={16} />)}
+                        </div>
                     </div>
-                    <input
-                      value={headerHtml}
-                      onChange={(e) => setHeaderHtml(e.target.value)}
-                      className="flex-1 min-w-[300px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="Enter header text"
-                    />
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-4">
-                    <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={footerEnabled}
-                        onChange={(e) => setFooterEnabled(e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2"
-                      />
-                      Document Footer
-                    </label>
-                    <div className="flex items-center gap-2">
-                      {alignBtn(footerAlign, "start", setFooterAlign, "Left", <AlignLeft size={16} />)}
-                      {alignBtn(footerAlign, "center", setFooterAlign, "Center", <AlignCenter size={16} />)}
-                      {alignBtn(footerAlign, "end", setFooterAlign, "Right", <AlignRight size={16} />)}
+                    {/* Footer Settings */}
+                    <div className="space-y-3">
+                        <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <input
+                                type="checkbox"
+                                checked={footerEnabled}
+                                onChange={(e) => setFooterEnabled(e.target.checked)}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span>Document Footer</span>
+                        </label>
+                        <input
+                            value={footerHtml}
+                            onChange={(e) => setFooterHtml(e.target.value)}
+                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                            placeholder="Enter footer text"
+                            disabled={!footerEnabled}
+                        />
+                        <div className="flex items-center gap-2">
+                            {alignBtn(footerAlign, "start", setFooterAlign, "Left", <AlignLeft size={16} />)}
+                            {alignBtn(footerAlign, "center", setFooterAlign, "Center", <AlignCenter size={16} />)}
+                            {alignBtn(footerAlign, "end", setFooterAlign, "Right", <AlignRight size={16} />)}
+                        </div>
                     </div>
-                    <input
-                      value={footerHtml}
-                      onChange={(e) => setFooterHtml(e.target.value)}
-                      className="flex-1 min-w-[300px] rounded-md border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="Enter footer text"
-                    />
-                  </div>
 
-                  <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-gray-200">
-                    <button
-                      type="button"
-                      onClick={() => setShowPreview((p) => !p)}
-                      className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                      title={showPreview ? "Hide preview" : "Show preview"}
-                    >
-                      {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
-                      {showPreview ? "Hide Preview" : "Show Preview"}
-                    </button>
-                    <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
-                      <input
-                        type="checkbox"
-                        checked={showPageNumbers}
-                        onChange={(e) => setShowPageNumbers(e.target.checked)}
-                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 focus:ring-2"
-                      />
-                      Show Page Numbers
-                    </label>
-                  </div>
+                    {/* General Settings */}
+                    <div className="md:col-span-2 border-t border-gray-200 pt-6 flex flex-wrap items-center gap-4">
+                        <button
+                            type="button"
+                            onClick={() => setShowPreview((p) => !p)}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                            title={showPreview ? "Hide preview" : "Show preview"}
+                        >
+                            {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
+                            <span>{showPreview ? "Hide Preview" : "Show Preview"}</span>
+                        </button>
+                        <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-700">
+                            <input
+                                type="checkbox"
+                                checked={showPageNumbers}
+                                onChange={(e) => setShowPageNumbers(e.target.checked)}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <span>Show Page Numbers</span>
+                        </label>
+                    </div>
                 </div>
               </div>
 
