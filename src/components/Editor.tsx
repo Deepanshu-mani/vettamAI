@@ -27,7 +27,7 @@ import { CollapsibleSidebar } from "./CollapsibleSidebar";
 import { FooterBar } from "./FooterBar";
 import { TrashContext } from "../context/TextContext";
 import { PagePreviewPane } from "./page-preview-pane";
-import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
+import { PageContainer } from "./PageContainer";
 
 type Align = "start" | "center" | "end"
 
@@ -50,13 +50,14 @@ export const Editor = (): ReactElement => {
   const [showRuler, setShowRuler] = useState(false)
   const [zoom, setZoom] = useState(1)
 
-  const [headerHtml, setHeaderHtml] = useState("<div>Header</div>");
-  const [footerHtml, setFooterHtml] = useState("<div>Footer</div>");
+  const [headerHtml, setHeaderHtml] = useState("<p>Document Header</p>");
+  const [footerHtml, setFooterHtml] = useState("<p>Document Footer</p>");
+  const [pages, setPages] = useState<string[]>([]);
 
   const { setOnDropDelete } = useContext(TrashContext);
 
-  const pageShellRef = useRef<HTMLDivElement | null>(null);
-  const pageInnerRef = useRef<HTMLDivElement | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const editorElementRef = useRef<HTMLElement | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -143,19 +144,38 @@ export const Editor = (): ReactElement => {
       const words = text.trim() ? text.trim().split(/\s+/).length : 0;
       setWordCount(words);
       setCharCount(text.length);
-      const estimatedPages = Math.max(1, Math.ceil(words / 350));
-      setPageCount(estimatedPages);
-      debouncedRepaginateRef.current();
+      updatePages();
     },
     editorProps: {
       attributes: {
-        class: "ProseMirror-content mx-auto focus:outline-none max-w-none",
+        class: "ProseMirror-content focus:outline-none max-w-none min-h-full",
       },
     },
   });
 
+  // Update editor element ref when editor changes
+  useEffect(() => {
+    if (editor?.view?.dom) {
+      editorElementRef.current = editor.view.dom as HTMLElement;
+    }
+  }, [editor]);
+
   // Keep current HTML for preview
   const currentHtml = useMemo(() => editor?.getHTML() ?? "", [editor?.state])
+
+  // Update pages when content changes
+  const updatePages = useCallback(() => {
+    if (!editor) return;
+    
+    const html = editor.getHTML();
+    const pageBreaks = html.split(/<div[^>]*data-type="page-break"[^>]*><\/div>/gi);
+    setPages(pageBreaks);
+    setPageCount(pageBreaks.length);
+  }, [editor]);
+
+  useEffect(() => {
+    updatePages();
+  }, [updatePages, editor?.state]);
 
   // Provide drag-to-trash deletion behavior
   useEffect(() => {
@@ -183,97 +203,6 @@ export const Editor = (): ReactElement => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor])
 
-  // Simple debounce
-  const debounce = (fn: () => void, delay = 150) => {
-    let t: number | undefined;
-    return () => {
-      if (t) window.clearTimeout(t);
-      t = window.setTimeout(fn, delay);
-    };
-  };
-
-  const isPaginatingRef = useRef(false);
-  const debouncedRepaginateRef = useRef<() => void>(() => {});
-
-  const repaginate = useCallback(() => {
-    if (!editor || !pageInnerRef.current) return;
-    if (isPaginatingRef.current) return;
-    isPaginatingRef.current = true;
-
-    const view = editor.view;
-    const root = view.dom as HTMLElement;
-
-    const pxPerInch = 96;
-    const pageHeightPx = Math.round(11.69 * pxPerInch) - 64; // p-8 top and bottom
-
-    // Remove existing auto page breaks
-    editor.commands.command(({ state, tr }) => {
-      const type = state.schema.nodes["pageBreak"];
-      let removed = false;
-      state.doc.descendants((node, pos) => {
-        if (node.type === type && node.attrs?.auto) {
-          tr.delete(pos, pos + node.nodeSize);
-          removed = true;
-        }
-      });
-      if (removed) {
-        tr.setMeta("addToHistory", false);
-        view.dispatch(tr);
-      }
-      return true;
-    });
-
-    // Measure blocks and insert auto breaks
-    const children = Array.from(root.children) as HTMLElement[];
-    let acc = 0;
-    const toInsert: { pos: number }[] = [];
-
-    for (const el of children) {
-      if (el.getAttribute("data-type") === "page-break") {
-        acc = 0;
-        continue;
-      }
-
-      const h = el.offsetHeight;
-      if (acc + h > pageHeightPx) {
-        try {
-          const pos = (view as any).posAtDOM(el, 0);
-          toInsert.push({ pos });
-          acc = h;
-        } catch {
-          acc += h;
-        }
-      } else {
-        acc += h;
-      }
-    }
-
-    if (toInsert.length) {
-      for (let i = toInsert.length - 1; i >= 0; i--) {
-        const { pos } = toInsert[i];
-        editor.commands.insertContentAt(
-          pos,
-          { type: "pageBreak", attrs: { auto: true } },
-          { updateSelection: false }
-        );
-      }
-    }
-
-    isPaginatingRef.current = false;
-  }, [editor]);
-
-  useEffect(() => {
-    debouncedRepaginateRef.current = debounce(repaginate, 200);
-  }, [repaginate]);
-
-  useEffect(() => {
-    if (!editor) return;
-    repaginate();
-    const onResize = () => debouncedRepaginateRef.current();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [editor, repaginate]);
-
   const handlePrint = () => {
     window.print();
   };
@@ -282,13 +211,12 @@ export const Editor = (): ReactElement => {
     if (!editor) return;
 
     const html = editor.getHTML();
-    const parts = html.split(/<div[^>]*data-type="page-break"[^>]*><\/div>/gi);
-    const total = parts.length;
+    const total = pages.length;
 
     const alignToStyle = (a: Align) =>
       a === "start" ? "text-align:left" : a === "end" ? "text-align:right" : "text-align:center"
 
-    const pageHtml = parts
+    const pageHtml = pages
       .map((content, i) => `
         <div class="page">
           ${headerEnabled ? `<div class="page-header" style="${alignToStyle(headerAlign)}">${headerHtml}</div>` : ""}
@@ -306,14 +234,14 @@ export const Editor = (): ReactElement => {
           <title>Document Export</title>
           <meta charset="utf-8">
           <style>
-            :root { --page-w: 8.27in; --page-h: 11.69in; }
+            :root { --page-w: 210mm; --page-h: 297mm; }
             body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; color: #333; background: #f3f4f6; }
             .page { width: var(--page-w); min-height: var(--page-h); margin: 0 auto 1rem; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; display: flex; flex-direction: column; }
-            .page-header, .page-footer { padding: 0.5in 1in; color: #6b7280; }
-            .page-header { min-height: 0.6in; display: flex; align-items: center; }
-            .page-footer { min-height: 0.6in; display: flex; align-items: center; }
-            .page-body { padding: 0 1in; flex: 1; }
-            .page-num { position: absolute; right: 0.6in; bottom: 0.35in; color: #6b7280; font-size: 10pt; }
+            .page-header, .page-footer { padding: 20mm 32mm; color: #6b7280; }
+            .page-header { min-height: 20mm; display: flex; align-items: center; }
+            .page-footer { min-height: 20mm; display: flex; align-items: center; }
+            .page-body { padding: 0 32mm; flex: 1; }
+            .page-num { position: absolute; right: 32mm; bottom: 8mm; color: #6b7280; font-size: 10pt; }
             @media print {
               body { padding: 0; background: white; }
               .page { page-break-after: always; box-shadow: none; margin: 0 auto; }
@@ -357,11 +285,11 @@ export const Editor = (): ReactElement => {
 
   const handleFitToWidth = () => {
     // Calculate zoom to fit page width to container
-    if (pageShellRef.current) {
-      const container = pageShellRef.current.parentElement;
+    if (editorContainerRef.current) {
+      const container = editorContainerRef.current;
       if (container) {
         const containerWidth = container.clientWidth - 64; // Account for padding
-        const pageWidth = 8.27 * 96; // 8.27 inches * 96 DPI
+        const pageWidth = 210 * 3.78; // 210mm * 3.78 pixels per mm
         const newZoom = Math.min(1.5, containerWidth / pageWidth);
         setZoom(newZoom);
       }
@@ -374,6 +302,22 @@ export const Editor = (): ReactElement => {
 
   const handleNextPage = () => {
     setCurrentPage(Math.min(pageCount, currentPage + 1));
+  };
+
+  const handleHeadingClick = (element: HTMLElement) => {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const handleSearchResultClick = (element: HTMLElement) => {
+    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  };
+
+  const handlePageClick = (pageIndex: number) => {
+    const pageElements = document.querySelectorAll('.page-container');
+    const targetPage = pageElements[pageIndex] as HTMLElement;
+    if (targetPage) {
+      targetPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
   };
 
   if (!editor) {
@@ -415,15 +359,22 @@ export const Editor = (): ReactElement => {
         <div className={`h-full transition-all duration-300 ${sidebarVisible ? 'mr-[300px]' : ''}`}>
           {/* Main editor area */}
           <main className="flex-1 overflow-auto">
-            <div className="container mx-auto py-6 px-4">
+            <div ref={editorContainerRef} className="container mx-auto py-6 px-4">
               {/* Ruler */}
               {showRuler && (
-                <div className="mb-4 h-6 bg-white border border-gray-200 rounded relative overflow-hidden">
+                <div 
+                  className="mb-4 h-6 bg-white border border-gray-200 rounded relative overflow-hidden mx-auto"
+                  style={{ 
+                    width: `${210 * 3.78 * zoom}px`,
+                    transform: `scale(${zoom})`,
+                    transformOrigin: 'center top'
+                  }}
+                >
                   <div className="absolute inset-0 flex">
-                    {Array.from({ length: 20 }, (_, i) => (
+                    {Array.from({ length: 21 }, (_, i) => (
                       <div key={i} className="flex-1 border-r border-gray-200 relative">
                         <div className="absolute top-0 left-0 text-xs text-gray-400 px-1">
-                          {i + 1}"
+                          {i * 10}mm
                         </div>
                         <div className="absolute bottom-0 left-1/2 w-px h-2 bg-gray-300"></div>
                       </div>
@@ -432,51 +383,26 @@ export const Editor = (): ReactElement => {
                 </div>
               )}
 
-              <div
-                ref={pageShellRef}
-                className="mx-auto bg-white shadow-2xl rounded-lg overflow-visible transition-transform"
-                style={{
-                  width: "8.27in",
-                  minHeight: "11.69in",
-                  boxSizing: "border-box",
-                  transform: `scale(${zoom})`,
-                  transformOrigin: "top center",
-                }}
-              >
-                {/* In-canvas header */}
-                {headerEnabled && (
-                  <div
-                    className={`px-8 pt-6 pb-2 text-sm text-gray-500 ${
-                      headerAlign === "start" ? "text-left" : headerAlign === "end" ? "text-right" : "text-center"
-                    }`}
-                    style={{ minHeight: "0.6in" }}
-                    dangerouslySetInnerHTML={{ __html: headerHtml }}
-                  />
-                )}
-
-                <div ref={pageInnerRef} className="p-8">
-                  <EditorContent
-                    editor={editor}
-                    className="min-h-[9in] focus-within:outline-none"
-                  />
-                </div>
-
-                {/* In-canvas footer */}
-                {footerEnabled && (
-                  <div
-                    className={`relative px-8 pt-2 pb-6 text-sm text-gray-500 ${
-                      footerAlign === "start" ? "text-left" : footerAlign === "end" ? "text-right" : "text-center"
-                    }`}
-                    style={{ minHeight: "0.6in" }}
+              {/* Pages */}
+              <div className="space-y-0">
+                {pages.map((pageContent, index) => (
+                  <PageContainer
+                    key={index}
+                    pageNumber={index + 1}
+                    totalPages={pages.length}
+                    headerContent={headerHtml}
+                    footerContent={footerHtml}
+                    headerEnabled={headerEnabled}
+                    footerEnabled={footerEnabled}
+                    headerAlign={headerAlign}
+                    footerAlign={footerAlign}
+                    onHeaderChange={setHeaderHtml}
+                    onFooterChange={setFooterHtml}
+                    zoom={zoom}
                   >
-                    <div dangerouslySetInnerHTML={{ __html: footerHtml }} />
-                    {showPageNumbers && (
-                      <div className="absolute right-8 bottom-2 text-gray-500 text-[10pt]">
-                        Page 1
-                      </div>
-                    )}
-                  </div>
-                )}
+                    {index === 0 && <EditorContent editor={editor} />}
+                  </PageContainer>
+                ))}
               </div>
             </div>
           </main>
@@ -487,6 +413,9 @@ export const Editor = (): ReactElement => {
         <CollapsibleSidebar
           isVisible={sidebarVisible}
           onToggle={() => setSidebarVisible(!sidebarVisible)}
+          editorElement={editorElementRef.current}
+          onHeadingClick={handleHeadingClick}
+          onSearchResultClick={handleSearchResultClick}
         >
           <PagePreviewPane
             html={currentHtml}
@@ -497,6 +426,7 @@ export const Editor = (): ReactElement => {
             headerAlign={headerAlign}
             footerAlign={footerAlign}
             showPageNumbers={showPageNumbers}
+            onPageClick={handlePageClick}
           />
         </CollapsibleSidebar>
       </div>
@@ -505,7 +435,6 @@ export const Editor = (): ReactElement => {
       <TrashBin />
 
       {/* Print Styles and editor visuals */}
-      <style>{`
         /* Footer bar spacing */}+        body {
           padding-bottom: 60px;
         }
@@ -520,7 +449,7 @@ export const Editor = (): ReactElement => {
           .container { padding: 0; }
           .fixed, header, aside { display: none !important; }
           .shadow-lg, .shadow-2xl { box-shadow: none !important; }
-          @page { size: A4; margin: 0.5in; }
+          @page { size: A4; margin: 20mm; }
           .page-break { page-break-before: always; break-before: page; }
         }
 
@@ -574,6 +503,19 @@ export const Editor = (): ReactElement => {
 
         /* Page break visual (in-editor) */
         .page-break { position: relative; }
+
+        /* Page container styles */
+        .page-container {
+          page-break-after: always;
+          break-after: page;
+        }
+
+        /* Ensure proper A4 dimensions */
+        @media screen {
+          .page-container {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+          }
+        }
       `}</style>
 
       {/* Footer Bar */}

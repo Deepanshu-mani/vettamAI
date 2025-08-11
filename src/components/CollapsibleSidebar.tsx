@@ -1,16 +1,24 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Image, List, Search } from 'lucide-react';
+import { DocumentIndex } from './DocumentIndex';
+import { DocumentSearch } from './DocumentSearch';
 
 interface CollapsibleSidebarProps {
   isVisible: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  editorElement: HTMLElement | null;
+  onHeadingClick: (element: HTMLElement) => void;
+  onSearchResultClick: (element: HTMLElement) => void;
 }
 
 export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
   isVisible,
   onToggle,
   children,
+  editorElement,
+  onHeadingClick,
+  onSearchResultClick,
 }) => {
   const [activeTab, setActiveTab] = useState<'thumbnail' | 'index' | 'search'>('thumbnail');
 
@@ -78,33 +86,16 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
               </div>
             )}
             {activeTab === 'index' && (
-              <div className="p-4">
-                <div className="text-sm text-gray-500 mb-4">Document Index</div>
-                <div className="space-y-2">
-                  <div className="text-sm text-gray-700 hover:bg-gray-100 p-2 rounded cursor-pointer">
-                    1. Getting started
-                  </div>
-                  <div className="text-sm text-gray-700 hover:bg-gray-100 p-2 rounded cursor-pointer pl-6">
-                    • Bullet list item
-                  </div>
-                  <div className="text-sm text-gray-700 hover:bg-gray-100 p-2 rounded cursor-pointer pl-6">
-                    • Second item
-                  </div>
-                </div>
-              </div>
+              <DocumentIndex
+                editorElement={editorElement}
+                onHeadingClick={onHeadingClick}
+              />
             )}
             {activeTab === 'search' && (
-              <div className="p-4">
-                <div className="text-sm text-gray-500 mb-4">Search Document</div>
-                <input
-                  type="text"
-                  placeholder="Search..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <div className="mt-4 text-sm text-gray-500">
-                  No search results
-                </div>
-              </div>
+              <DocumentSearch
+                editorElement={editorElement}
+                onResultClick={onSearchResultClick}
+              />
             )}
           </div>
         </div>
