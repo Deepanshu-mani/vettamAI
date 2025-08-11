@@ -435,7 +435,7 @@ export const Editor = (): ReactElement => {
       <TrashBin />
 
       {/* Print Styles and editor visuals */}
-        /* Footer bar spacing */}+        body {
+      {/* Footer bar spacing */}        body {
           padding-bottom: 60px;
         }
 
