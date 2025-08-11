@@ -433,94 +433,91 @@ export const Editor = (): ReactElement => {
 
       {/* Bottom trash drop target shown during drag */}
       <TrashBin />
+<style>{`
+  /* Footer bar spacing */
+  body {
+    padding-bottom: 60px;
+  }
 
-     {/* Print Styles and editor visuals */}
-  <style>{`
-    /* Footer bar spacing */
-    body {
-      padding-bottom: 60px;
+  /* Page shadow enhancement */
+  .shadow-2xl {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+
+  @media print {
+    body { margin: 0; padding: 0; }
+    .container { padding: 0; }
+    .fixed, header, aside { display: none !important; }
+    .shadow-lg, .shadow-2xl { box-shadow: none !important; }
+    @page { size: A4; margin: 20mm; }
+    .page-break { page-break-before: always; break-before: page; }
+  }
+
+  .ProseMirror { outline: none; line-height: 1.6; }
+  .ProseMirror p { margin: 1em 0; }
+
+  /* Headings */
+  .ProseMirror h1 { font-size: 2rem; line-height: 1.25; margin: 1.5rem 0 0.5rem; font-weight: 700; }
+  .ProseMirror h2 { font-size: 1.75rem; line-height: 1.3; margin: 1.4rem 0 0.5rem; font-weight: 700; }
+  .ProseMirror h3 { font-size: 1.5rem; line-height: 1.35; margin: 1.3rem 0 0.5rem; font-weight: 700; }
+  .ProseMirror h4 { font-size: 1.25rem; line-height: 1.4; margin: 1.2rem 0 0.5rem; font-weight: 700; }
+  .ProseMirror h5 { font-size: 1.125rem; line-height: 1.45; margin: 1.1rem 0 0.5rem; font-weight: 700; }
+  .ProseMirror h6 { font-size: 1rem; line-height: 1.5; margin: 1rem 0 0.5rem; font-weight: 700; }
+
+  /* Lists */
+  .ProseMirror ul { list-style: disc outside; padding-left: 1.5rem; margin: 0.5rem 0; }
+  .ProseMirror ol { list-style: decimal outside; padding-left: 1.5rem; margin: 0.5rem 0; }
+  .ProseMirror li { margin: 0.25rem 0; }
+
+  /* Task list */
+  .ProseMirror .task-list { list-style: none; padding-left: 0; margin: 0.5rem 0; }
+  .ProseMirror .task-list li { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0; }
+  .ProseMirror .task-list input[type="checkbox"] {
+    margin: 0; vertical-align: middle;
+    width: 1rem; height: 1rem; accent-color: #111111;
+  }
+
+  /* Code block */
+  .ProseMirror pre {
+    background: #f6f8fa;
+    border-radius: 0.5rem;
+    color: #24292e;
+    font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
+    margin: 1.5rem 0;
+    padding: 0.75rem 1rem;
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  /* Blockquote */
+  .ProseMirror blockquote {
+    border-left: 3px solid #d1d5db;
+    margin: 1.5rem 0;
+    padding-left: 1rem;
+    font-style: italic;
+  }
+
+  /* Links */
+  .ProseMirror a { color: #3b82f6; cursor: pointer; text-decoration: underline; }
+  .ProseMirror a:hover { color: #1d4ed8; }
+
+  /* Page break */
+  .page-break { position: relative; }
+
+  /* Page container */
+  .page-container {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  /* A4 shadow */
+  @media screen {
+    .page-container {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                  0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
-  `}</style>
-
-        /* Page shadow enhancement */
-        .shadow-2xl {
-          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
-        }
-
-        @media print {
-          body { margin: 0; padding: 0; }
-          .container { padding: 0; }
-          .fixed, header, aside { display: none !important; }
-          .shadow-lg, .shadow-2xl { box-shadow: none !important; }
-          @page { size: A4; margin: 20mm; }
-          .page-break { page-break-before: always; break-before: page; }
-        }
-
-        .ProseMirror { outline: none; line-height: 1.6; }
-        .ProseMirror p { margin: 1em 0; }
-
-        /* Headings: professional sizing (inline TextStyle font-size overrides) */
-        .ProseMirror h1 { font-size: 2rem; line-height: 1.25; margin: 1.5rem 0 0.5rem; font-weight: 700; }
-        .ProseMirror h2 { font-size: 1.75rem; line-height: 1.3; margin: 1.4rem 0 0.5rem; font-weight: 700; }
-        .ProseMirror h3 { font-size: 1.5rem; line-height: 1.35; margin: 1.3rem 0 0.5rem; font-weight: 700; }
-        .ProseMirror h4 { font-size: 1.25rem; line-height: 1.4; margin: 1.2rem 0 0.5rem; font-weight: 700; }
-        .ProseMirror h5 { font-size: 1.125rem; line-height: 1.45; margin: 1.1rem 0 0.5rem; font-weight: 700; }
-        .ProseMirror h6 { font-size: 1rem; line-height: 1.5; margin: 1rem 0 0.5rem; font-weight: 700; }
-
-        /* Lists */
-        .ProseMirror ul { list-style: disc outside; padding-left: 1.5rem; margin: 0.5rem 0; }
-        .ProseMirror ol { list-style: decimal outside; padding-left: 1.5rem; margin: 0.5rem 0; }
-        .ProseMirror li { margin: 0.25rem 0; }
-
-        /* Task list styling (center checkbox) */
-        .ProseMirror .task-list { list-style: none; padding-left: 0; margin: 0.5rem 0; }
-        .ProseMirror .task-list li { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0; }
-        .ProseMirror .task-list input[type="checkbox"] {
-          margin: 0; vertical-align: middle;
-          width: 1rem; height: 1rem; accent-color: #111111;
-        }
-
-        /* Code block styles */
-        .ProseMirror pre {
-          background: #f6f8fa;
-          border-radius: 0.5rem;
-          color: #24292e;
-          font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
-          margin: 1.5rem 0;
-          padding: 0.75rem 1rem;
-          white-space: pre;
-          overflow-x: auto;
-        }
-
-        /* Blockquote styles */
-        .ProseMirror blockquote {
-          border-left: 3px solid #d1d5db;
-          margin: 1.5rem 0;
-          padding-left: 1rem;
-          font-style: italic;
-        }
-
-        /* Link styles */
-        .ProseMirror a { color: #3b82f6; cursor: pointer; text-decoration: underline; }
-        .ProseMirror a:hover { color: #1d4ed8; }
-
-        /* Page break visual (in-editor) */
-        .page-break { position: relative; }
-
-        /* Page container styles */
-        .page-container {
-          page-break-after: always;
-          break-after: page;
-        }
-
-        /* Ensure proper A4 dimensions */
-        @media screen {
-          .page-container {
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-          }
-        }
-      `}</style>
-
+  }
+`}</style>
       {/* Footer Bar */}
       <FooterBar
         currentPage={currentPage}
