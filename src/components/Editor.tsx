@@ -384,18 +384,6 @@ export const Editor = (): ReactElement => {
     );
   }
 
-    <button
-      type="button"
-      onClick={() => set(value)}
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-sm ${
-        current === value ? "bg-gray-900 text-white border-gray-900" : "bg-white text-gray-900 border-gray-200 hover:bg-gray-100"
-      }`}
-      title={label}
-    >
-      {icon}
-      <span className="hidden sm:inline">{label}</span>
-    </button>
-
   return (
     <div className="min-h-screen bg-white flex flex-col">
       <EditorHeader
