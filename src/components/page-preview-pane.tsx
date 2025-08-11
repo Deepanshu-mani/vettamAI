@@ -33,8 +33,8 @@ export const PagePreviewPane: React.FC<PagePreviewPaneProps> = ({
   }, [html])
 
   return (
-    <aside className="hidden xl:block w-[300px] shrink-0 border-l border-gray-200 bg-white">
-      <div className="sticky top-0 h-screen overflow-auto p-4 space-y-6">
+    <div className="w-full">
+      <div className="space-y-6">
         <div className="text-sm font-medium text-gray-700">Preview</div>
         {pages.map((content, idx) => (
           <div key={idx} className="mx-auto w-[220px]">
@@ -82,6 +82,6 @@ export const PagePreviewPane: React.FC<PagePreviewPaneProps> = ({
           </div>
         ))}
       </div>
-    </aside>
+    </div>
   )
 }

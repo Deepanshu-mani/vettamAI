@@ -23,9 +23,11 @@ import TaskItem from "@tiptap/extension-task-item";
 import { PageBreak } from "../extension/PageBreak";
 import { EditorHeader } from "./editor-header";
 import { TrashBin } from "./trash-bin";
+import { CollapsibleSidebar } from "./CollapsibleSidebar";
+import { FooterBar } from "./FooterBar";
 import { TrashContext } from "../context/TextContext";
 import { PagePreviewPane } from "./page-preview-pane";
-import { AlignLeft, AlignCenter, AlignRight, Eye, EyeOff } from 'lucide-react';
+import { AlignLeft, AlignCenter, AlignRight } from 'lucide-react';
 
 type Align = "start" | "center" | "end"
 
@@ -33,14 +35,20 @@ export const Editor = (): ReactElement => {
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [pageCount, setPageCount] = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Header/Footer and preview controls
   const [headerEnabled, setHeaderEnabled] = useState(true)
   const [footerEnabled, setFooterEnabled] = useState(true)
   const [headerAlign, setHeaderAlign] = useState<Align>("center")
   const [footerAlign, setFooterAlign] = useState<Align>("center")
-  const [showPreview, setShowPreview] = useState(true)
   const [showPageNumbers, setShowPageNumbers] = useState(true)
+  
+  // New UI state
+  const [activeTab, setActiveTab] = useState<'text' | 'page'>('text')
+  const [sidebarVisible, setSidebarVisible] = useState(true)
+  const [showRuler, setShowRuler] = useState(false)
+  const [zoom, setZoom] = useState(1)
 
   const [headerHtml, setHeaderHtml] = useState("<div>Header</div>");
   const [footerHtml, setFooterHtml] = useState("<div>Footer</div>");
@@ -347,6 +355,27 @@ export const Editor = (): ReactElement => {
     editor.chain().focus().setPageBreak().run();
   };
 
+  const handleFitToWidth = () => {
+    // Calculate zoom to fit page width to container
+    if (pageShellRef.current) {
+      const container = pageShellRef.current.parentElement;
+      if (container) {
+        const containerWidth = container.clientWidth - 64; // Account for padding
+        const pageWidth = 8.27 * 96; // 8.27 inches * 96 DPI
+        const newZoom = Math.min(1.5, containerWidth / pageWidth);
+        setZoom(newZoom);
+      }
+    }
+  };
+
+  const handlePreviousPage = () => {
+    setCurrentPage(Math.max(1, currentPage - 1));
+  };
+
+  const handleNextPage = () => {
+    setCurrentPage(Math.min(pageCount, currentPage + 1));
+  };
+
   if (!editor) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -355,7 +384,6 @@ export const Editor = (): ReactElement => {
     );
   }
 
-  const alignBtn = (current: Align, value: Align, set: (a: Align) => void, label: string, icon: JSX.Element) => (
     <button
       type="button"
       onClick={() => set(value)}
@@ -367,7 +395,6 @@ export const Editor = (): ReactElement => {
       {icon}
       <span className="hidden sm:inline">{label}</span>
     </button>
-  )
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
@@ -376,90 +403,56 @@ export const Editor = (): ReactElement => {
         wordCount={wordCount}
         charCount={charCount}
         pageCount={pageCount}
+        activeTab={activeTab}
+        headerEnabled={headerEnabled}
+        footerEnabled={footerEnabled}
+        headerAlign={headerAlign}
+        footerAlign={footerAlign}
+        showRuler={showRuler}
+        zoom={zoom}
+        onTabChange={setActiveTab}
+        onHeaderToggle={setHeaderEnabled}
+        onFooterToggle={setFooterEnabled}
+        onHeaderAlignChange={setHeaderAlign}
+        onFooterAlignChange={setFooterAlign}
+        onRulerToggle={setShowRuler}
+        onZoomChange={setZoom}
+        onFitToWidth={handleFitToWidth}
         onExport={handleExport}
         onPrint={handlePrint}
         onPageBreak={handleInsertPageBreak}
       />
 
       <div className="flex-1 overflow-hidden bg-soft">
-        <div className="h-full flex">
+        <div className={`h-full transition-all duration-300 ${sidebarVisible ? 'mr-[300px]' : ''}`}>
           {/* Main editor area */}
           <main className="flex-1 overflow-auto">
             <div className="container mx-auto py-6 px-4">
-              {/* Header/Footer controls */}
-              <div className="mb-4 grid grid-cols-1 gap-3">
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={headerEnabled}
-                      onChange={(e) => setHeaderEnabled(e.target.checked)}
-                    />
-                    Show header
-                  </label>
-                  <div className="flex items-center gap-2">
-                    {alignBtn(headerAlign, "start", setHeaderAlign, "Header start", <AlignLeft size={16} />)}
-                    {alignBtn(headerAlign, "center", setHeaderAlign, "Header center", <AlignCenter size={16} />)}
-                    {alignBtn(headerAlign, "end", setHeaderAlign, "Header end", <AlignRight size={16} />)}
+              {/* Ruler */}
+              {showRuler && (
+                <div className="mb-4 h-6 bg-white border border-gray-200 rounded relative overflow-hidden">
+                  <div className="absolute inset-0 flex">
+                    {Array.from({ length: 20 }, (_, i) => (
+                      <div key={i} className="flex-1 border-r border-gray-200 relative">
+                        <div className="absolute top-0 left-0 text-xs text-gray-400 px-1">
+                          {i + 1}"
+                        </div>
+                        <div className="absolute bottom-0 left-1/2 w-px h-2 bg-gray-300"></div>
+                      </div>
+                    ))}
                   </div>
-                  <input
-                    value={headerHtml}
-                    onChange={(e) => setHeaderHtml(e.target.value)}
-                    className="min-w-[260px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="<div>Header</div>"
-                  />
                 </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={footerEnabled}
-                      onChange={(e) => setFooterEnabled(e.target.checked)}
-                    />
-                    Show footer
-                  </label>
-                  <div className="flex items-center gap-2">
-                    {alignBtn(footerAlign, "start", setFooterAlign, "Footer start", <AlignLeft size={16} />)}
-                    {alignBtn(footerAlign, "center", setFooterAlign, "Footer center", <AlignCenter size={16} />)}
-                    {alignBtn(footerAlign, "end", setFooterAlign, "Footer end", <AlignRight size={16} />)}
-                  </div>
-                  <input
-                    value={footerHtml}
-                    onChange={(e) => setFooterHtml(e.target.value)}
-                    className="min-w-[260px] flex-1 rounded-md border border-gray-300 px-3 py-2 text-sm"
-                    placeholder="<div>Footer</div>"
-                  />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowPreview((p) => !p)}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-gray-300 text-sm hover:bg-gray-50"
-                    title={showPreview ? "Hide preview" : "Show preview"}
-                  >
-                    {showPreview ? <EyeOff size={16} /> : <Eye size={16} />}
-                    {showPreview ? "Hide preview" : "Show preview"}
-                  </button>
-                  <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-                    <input
-                      type="checkbox"
-                      checked={showPageNumbers}
-                      onChange={(e) => setShowPageNumbers(e.target.checked)}
-                    />
-                    Show page numbers
-                  </label>
-                </div>
-              </div>
+              )}
 
               <div
                 ref={pageShellRef}
-                className="mx-auto bg-white shadow-2xl rounded-lg overflow-visible"
+                className="mx-auto bg-white shadow-2xl rounded-lg overflow-visible transition-transform"
                 style={{
                   width: "8.27in",
                   minHeight: "11.69in",
                   boxSizing: "border-box",
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "top center",
                 }}
               >
                 {/* In-canvas header */}
@@ -500,20 +493,24 @@ export const Editor = (): ReactElement => {
             </div>
           </main>
 
-          {/* Right preview pane */}
-          {showPreview && (
-            <PagePreviewPane
-              html={currentHtml}
-              header={headerHtml}
-              footer={footerHtml}
-              headerEnabled={headerEnabled}
-              footerEnabled={footerEnabled}
-              headerAlign={headerAlign}
-              footerAlign={footerAlign}
-              showPageNumbers={showPageNumbers}
-            />
-          )}
         </div>
+
+        {/* Collapsible Sidebar */}
+        <CollapsibleSidebar
+          isVisible={sidebarVisible}
+          onToggle={() => setSidebarVisible(!sidebarVisible)}
+        >
+          <PagePreviewPane
+            html={currentHtml}
+            header={headerHtml}
+            footer={footerHtml}
+            headerEnabled={headerEnabled}
+            footerEnabled={footerEnabled}
+            headerAlign={headerAlign}
+            footerAlign={footerAlign}
+            showPageNumbers={showPageNumbers}
+          />
+        </CollapsibleSidebar>
       </div>
 
       {/* Bottom trash drop target shown during drag */}
@@ -521,6 +518,15 @@ export const Editor = (): ReactElement => {
 
       {/* Print Styles and editor visuals */}
       <style>{`
+        /* Footer bar spacing */}+        body {
+          padding-bottom: 60px;
+        }
+
+        /* Page shadow enhancement */
+        .shadow-2xl {
+          box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
+        }
+
         @media print {
           body { margin: 0; padding: 0; }
           .container { padding: 0; }
@@ -581,6 +587,16 @@ export const Editor = (): ReactElement => {
         /* Page break visual (in-editor) */
         .page-break { position: relative; }
       `}</style>
+
+      {/* Footer Bar */}
+      <FooterBar
+        currentPage={currentPage}
+        totalPages={pageCount}
+        wordCount={wordCount}
+        charCount={charCount}
+        onPreviousPage={handlePreviousPage}
+        onNextPage={handleNextPage}
+      />
     </div>
   );
 };
