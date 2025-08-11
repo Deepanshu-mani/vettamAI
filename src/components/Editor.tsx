@@ -434,10 +434,13 @@ export const Editor = (): ReactElement => {
       {/* Bottom trash drop target shown during drag */}
       <TrashBin />
 
-      {/* Print Styles and editor visuals */}
-      {/* Footer bar spacing */}        body {
-          padding-bottom: 60px;
-        }
+     {/* Print Styles and editor visuals */}
+  <style>{`
+    /* Footer bar spacing */
+    body {
+      padding-bottom: 60px;
+    }
+  `}</style>
 
         /* Page shadow enhancement */
         .shadow-2xl {
