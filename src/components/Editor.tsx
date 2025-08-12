@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { JSX } from "react";
+import { loremIpsum } from "lorem-ipsum";
 import type { ReactElement } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -126,19 +126,11 @@ export const Editor = (): ReactElement => {
       }),
       PageBreak,
     ],
-    content: `
-      <h1>Getting started</h1>
-      <p>Welcome to the Simple Editor template! This template integrates open source UI components and Tiptap extensions licensed under MIT.</p>
-      <p>Integrate it by following the <a href="https://tiptap.dev/docs/editor/getting-started/install">Tiptap UI Components docs</a> or using our CLI tool.</p>
-      <blockquote>
-        <p>A fully responsive rich text editor with built-in support for common formatting and layout tools. Type markdown ** or use keyboard shortcuts ⌘+B for most all common markdown marks. ✓</p>
-      </blockquote>
-      <ul>
-        <li>Bullet list item</li>
-        <li>Second item</li>
-      </ul>
-      <p>Add images, customize alignment, and apply <mark data-color="#fbbf24">advanced formatting</mark> to make your writing more engaging and professional.</p>
-    `,
+    content: loremIpsum({
+      count: 20,
+      units: "paragraphs",
+      format: "html"
+    }),
     onUpdate: ({ editor }) => {
       const text = editor.getText();
       const words = text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -210,7 +202,7 @@ export const Editor = (): ReactElement => {
   const handleExport = () => {
     if (!editor) return;
 
-    const html = editor.getHTML();
+
     const total = pages.length;
 
     const alignToStyle = (a: Align) =>

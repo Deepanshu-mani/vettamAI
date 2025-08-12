@@ -17,6 +17,7 @@ interface PageContainerProps {
   onFooterChange: (content: string) => void;
   zoom: number;
   className?: string;
+  htmlContent?: string;
 }
 
 export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(({
@@ -33,6 +34,7 @@ export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(({
   onFooterChange,
   zoom,
   className = "",
+  htmlContent,
 }, ref) => {
   const alignToClass = (align: Align) => {
     switch (align) {
@@ -79,7 +81,11 @@ export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(({
                      headerEnabled || footerEnabled ? '257mm' : '277mm'
         }}
       >
-        {children}
+        {children ? (
+          children
+        ) : htmlContent ? (
+          <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+        ) : null}
       </div>
 
       {/* Footer */}
