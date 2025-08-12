@@ -5,34 +5,64 @@ import { TrashContext } from '../context/TextContext'
 import { GripVertical, Trash2 } from 'lucide-react'
 
 export const PageBreakComponent = (props: NodeViewWrapperProps) => {
-  const { isDragging, setDragging, setDragPayload } = useContext(TrashContext)
+  const { setDragging, setDragPayload } = useContext(TrashContext)
   const id = useId()
 
   const deleteSelf = () => {
     const pos = typeof props.getPos === 'function' ? props.getPos() : null
     if (pos == null || pos < 0) return
-    props.editor.commands.command(({ tr }: CommandProps) => {      const from = pos
+    
+    // Use a more reliable deletion method
+    const { state, view } = props.editor
+    const from = pos
+    const node = state.doc.nodeAt(from)
+    
+    if (node && node.type.name === 'pageBreak') {
       const to = pos + props.node.nodeSize
-      tr.delete(from, to)
-      return true
-    })
+      const tr = state.tr.delete(from, to)
+      view.dispatch(tr)
+    }
+  }
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    setDragging(true)
+    const pos = typeof props.getPos === 'function' ? props.getPos() : -1
+    setDragPayload({ type: 'page-break', pos })
+    
+    // Set drag data
+    e.dataTransfer?.setData('text/plain', `page-break:${id}`)
+    
+    // Create a custom drag image
+    const dragImage = document.createElement('div')
+    dragImage.textContent = 'Page Break'
+    dragImage.style.padding = '8px 12px'
+    dragImage.style.backgroundColor = 'white'
+    dragImage.style.border = '1px solid #ccc'
+    dragImage.style.borderRadius = '4px'
+    dragImage.style.fontSize = '12px'
+    dragImage.style.position = 'absolute'
+    dragImage.style.top = '-1000px'
+    document.body.appendChild(dragImage)
+    
+    e.dataTransfer?.setDragImage(dragImage, 0, 0)
+    
+    // Clean up drag image after drag starts
+    setTimeout(() => {
+      document.body.removeChild(dragImage)
+    }, 0)
+  }
+
+  const handleDragEnd = () => {
+    setDragging(false)
+    setDragPayload(null)
   }
 
   return (
     <NodeViewWrapper
       className="relative my-6 h-4 flex items-center select-none group"
       draggable
-      onDragStart={(e: React.DragEvent<HTMLDivElement>) => {
-        setDragging(true)
-        const pos = typeof props.getPos === 'function' ? props.getPos() : -1
-        setDragPayload({ type: 'page-break', pos })
-        e.dataTransfer?.setData('text/plain', `page-break:${id}`)
-        e.dataTransfer?.setDragImage?.(document.createElement('div'), 0, 0)
-      }}
-      onDragEnd={() => {
-        setDragging(false)
-        setDragPayload(null)
-      }}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       data-type="page-break"
       title="Page break"
     >
@@ -60,16 +90,6 @@ export const PageBreakComponent = (props: NodeViewWrapperProps) => {
       >
         <Trash2 size={16} className="text-red-500" />
       </button>
-
-      {/* Floating delete hint while dragging */}
-      <div
-        className={`absolute -right-10 top-1/2 -translate-y-1/2 transition-opacity ${isDragging ? 'opacity-100' : 'opacity-0'}`}
-        aria-hidden={!isDragging}
-      >
-        <div className="bg-white border border-gray-200 shadow rounded-full p-1">
-          <Trash2 className="text-red-500" size={16} />
-        </div>
-      </div>
     </NodeViewWrapper>
   )
 }

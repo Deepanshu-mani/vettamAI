@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react"
 import { Editor } from "@tiptap/react"
 import { Bold, Italic, Underline, Strikethrough, Code, LinkIcon, ImageIcon, List, ListOrdered, ListTodo, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo, Redo, Highlighter, Table } from 'lucide-react'
-import { ColorPopover } from "./color-popover"
+import { HighlightColorPicker } from "./HighlightColorPicker"
 
 interface ToolbarProps {
   editor: Editor | null
@@ -19,8 +19,6 @@ const FONT_SIZES = [
 ]
 
 export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
-  const [highlightOpen, setHighlightOpen] = useState(false)
-  const [anchor, setAnchor] = useState<{ top: number; left: number } | undefined>()
   const [, force] = useState(0)
 
   // Re-render on selection/transaction so dropdowns reflect current selection
@@ -39,15 +37,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
 
   const btnBase =
     "inline-flex items-center justify-center rounded-lg border border-transparent px-3 py-1.5 text-base font-medium bg-[#f9f9f9] cursor-pointer transition-colors duration-200 hover:bg-gray-100"
-
-  const onOpenHighlight = (e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
-    setAnchor({
-      top: rect.bottom + window.scrollY,
-      left: rect.left + rect.width / 2 + window.scrollX,
-    })
-    setHighlightOpen(true)
-  }
 
   if (!editor) return null
 
@@ -79,13 +68,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
     } else {
       editor.chain().focus().setMark("textStyle", { fontSize: v }).run()
     }
-  }
-
-  const applyHighlight = (color: string | null) => {
-    if (!editor) return
-    if (color) editor.chain().focus().setHighlight({ color }).run()
-    else editor.chain().focus().unsetHighlight().run()
-    setHighlightOpen(false)
   }
 
   const ToolbarSeparator = () => (
@@ -176,10 +158,8 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
 
         <ToolbarSeparator />
 
-        {/* Highlight palette */}
-        <button className={btnBase} onClick={onOpenHighlight} aria-label="Highlight" title="Highlight" type="button">
-          <Highlighter size={18} />
-        </button>
+        {/* Custom Highlight Color Picker */}
+        <HighlightColorPicker editor={editor} />
 
         <ToolbarSeparator />
 
@@ -236,14 +216,6 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
           <Table size={18} />
         </button>
       </div>
-
-      <ColorPopover
-        open={highlightOpen}
-        onClose={() => setHighlightOpen(false)}
-        onSelect={applyHighlight}
-        anchor={anchor}
-        title="Highlight"
-      />
     </div>
   )
 }

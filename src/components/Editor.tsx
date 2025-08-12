@@ -28,6 +28,7 @@ import { FooterBar } from "./FooterBar";
 import { TrashContext } from "../context/TextContext";
 import { PagePreviewPane } from "./page-preview-pane";
 import { PageContainer } from "./PageContainer";
+import { PaginatedEditor } from "./PaginatedEditor";
 
 type Align = "start" | "center" | "end"
 
@@ -52,12 +53,12 @@ export const Editor = (): ReactElement => {
 
   const [headerHtml, setHeaderHtml] = useState("<p>Document Header</p>");
   const [footerHtml, setFooterHtml] = useState("<p>Document Footer</p>");
-  const [pages, setPages] = useState<string[]>([]);
 
-  const { setOnDropDelete } = useContext(TrashContext);
+  const { setOnDropDelete, isDragging, dragPayload, onDropDelete } = useContext(TrashContext);
 
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const editorElementRef = useRef<HTMLElement | null>(null);
+  const paginatedEditorRef = useRef<{ updatePagination: () => void } | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -107,7 +108,12 @@ export const Editor = (): ReactElement => {
       }),
       TextStyle,
       Color,
-      Highlight.configure({ multicolor: true }),
+      Highlight.configure({ 
+        multicolor: true,
+        HTMLAttributes: {
+          class: 'highlight-mark',
+        },
+      }),
       FontFamily.configure({ types: ["textStyle"] }),
       CodeBlock.configure({
         HTMLAttributes: {
@@ -136,11 +142,21 @@ export const Editor = (): ReactElement => {
       const words = text.trim() ? text.trim().split(/\s+/).length : 0;
       setWordCount(words);
       setCharCount(text.length);
-      updatePages();
+      // Trigger pagination update
+      if (paginatedEditorRef.current) {
+        paginatedEditorRef.current.updatePagination();
+      }
     },
     editorProps: {
       attributes: {
         class: "ProseMirror-content focus:outline-none max-w-none min-h-full",
+      },
+      handleDrop: (view, event, slice, moved) => {
+        // Handle drag and drop properly
+        if (moved) {
+          return false; // Let TipTap handle the move
+        }
+        return false;
       },
     },
   });
@@ -155,45 +171,58 @@ export const Editor = (): ReactElement => {
   // Keep current HTML for preview
   const currentHtml = useMemo(() => editor?.getHTML() ?? "", [editor?.state])
 
-  // Update pages when content changes
-  const updatePages = useCallback(() => {
-    if (!editor) return;
-    
-    const html = editor.getHTML();
-    const pageBreaks = html.split(/<div[^>]*data-type="page-break"[^>]*><\/div>/gi);
-    setPages(pageBreaks);
-    setPageCount(pageBreaks.length);
-  }, [editor]);
-
-  useEffect(() => {
-    updatePages();
-  }, [updatePages, editor?.state]);
+  // Handle page count updates from PaginatedEditor
+  const handlePageCountChange = useCallback((count: number) => {
+    setPageCount(count);
+  }, []);
 
   // Provide drag-to-trash deletion behavior
   useEffect(() => {
-    if (!editor) return
-    setOnDropDelete(() => (payload: { type: string; pos: number }) => {      if (!payload) return
+    if (!editor) return;
+    
+    setOnDropDelete(() => (payload: { type: string; pos: number }) => {
+      if (!payload) return;
+      
       if (payload.type === 'page-break' && payload.pos >= 0) {
-        editor.commands.command(
-          ({
-            tr,
-            state,
-          }: {
-            tr: import('prosemirror-state').Transaction;
-            state: import('prosemirror-state').EditorState;
-          }) => {
-            const from = payload.pos
-            const node = state.doc.nodeAt(from)
-            if (!node || node.type.name !== 'pageBreak') return false
-            tr.delete(from, from + node.nodeSize)
-            return true
-          }
-        )
+        // Use a more reliable deletion method
+        const { state, view } = editor;
+        const from = payload.pos;
+        const node = state.doc.nodeAt(from);
+        
+        if (node && node.type.name === 'pageBreak') {
+          const tr = state.tr.delete(from, from + node.nodeSize);
+          view.dispatch(tr);
+        }
       }
-    })
-    return () => setOnDropDelete(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editor])
+    });
+    
+    return () => setOnDropDelete(null);
+  }, [editor, setOnDropDelete]);
+
+  // Handle trash drop
+  useEffect(() => {
+    const trashBin = document.getElementById('trash-bin');
+    if (!trashBin) return;
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      if (onDropDelete && dragPayload) {
+        onDropDelete(dragPayload);
+      }
+    };
+
+    trashBin.addEventListener('dragover', handleDragOver);
+    trashBin.addEventListener('drop', handleDrop);
+
+    return () => {
+      trashBin.removeEventListener('dragover', handleDragOver);
+      trashBin.removeEventListener('drop', handleDrop);
+    };
+  }, [onDropDelete, dragPayload]);
 
   const handlePrint = () => {
     window.print();
@@ -202,7 +231,11 @@ export const Editor = (): ReactElement => {
   const handleExport = () => {
     if (!editor) return;
 
-
+    // Get pages from PaginatedEditor
+    const pages = paginatedEditorRef.current ? 
+      Array.from(document.querySelectorAll('.paginated-page')).map(page => page.innerHTML) : 
+      [editor.getHTML()];
+    
     const total = pages.length;
 
     const alignToStyle = (a: Align) =>
@@ -305,7 +338,7 @@ export const Editor = (): ReactElement => {
   };
 
   const handlePageClick = (pageIndex: number) => {
-    const pageElements = document.querySelectorAll('.page-container');
+    const pageElements = document.querySelectorAll('.paginated-page');
     const targetPage = pageElements[pageIndex] as HTMLElement;
     if (targetPage) {
       targetPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -375,30 +408,23 @@ export const Editor = (): ReactElement => {
                 </div>
               )}
 
-              {/* Pages */}
-              <div className="space-y-0">
-                {pages.map((pageContent, index) => (
-                  <PageContainer
-                    key={index}
-                    pageNumber={index + 1}
-                    totalPages={pages.length}
-                    headerContent={headerHtml}
-                    footerContent={footerHtml}
-                    headerEnabled={headerEnabled}
-                    footerEnabled={footerEnabled}
-                    headerAlign={headerAlign}
-                    footerAlign={footerAlign}
-                    onHeaderChange={setHeaderHtml}
-                    onFooterChange={setFooterHtml}
-                    zoom={zoom}
-                  >
-                    {index === 0 && <EditorContent editor={editor} />}
-                  </PageContainer>
-                ))}
-              </div>
+              {/* Paginated Editor */}
+              <PaginatedEditor
+                ref={paginatedEditorRef}
+                editor={editor}
+                zoom={zoom}
+                headerEnabled={headerEnabled}
+                footerEnabled={footerEnabled}
+                headerContent={headerHtml}
+                footerContent={footerHtml}
+                headerAlign={headerAlign}
+                footerAlign={footerAlign}
+                onHeaderChange={setHeaderHtml}
+                onFooterChange={setFooterHtml}
+                onPageCountChange={handlePageCountChange}
+              />
             </div>
           </main>
-
         </div>
 
         {/* Collapsible Sidebar */}
@@ -425,7 +451,8 @@ export const Editor = (): ReactElement => {
 
       {/* Bottom trash drop target shown during drag */}
       <TrashBin />
-<style>{`
+      
+      <style>{`
   /* Footer bar spacing */
   body {
     padding-bottom: 60px;
@@ -496,20 +523,21 @@ export const Editor = (): ReactElement => {
   /* Page break */
   .page-break { position: relative; }
 
-  /* Page container */
-  .page-container {
+  /* Paginated pages */
+  .paginated-page {
     page-break-after: always;
     break-after: page;
   }
 
   /* A4 shadow */
   @media screen {
-    .page-container {
+    .paginated-page {
       box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
                   0 2px 4px -1px rgba(0, 0, 0, 0.06);
     }
   }
-`}</style>
+      `}</style>
+      
       {/* Footer Bar */}
       <FooterBar
         currentPage={currentPage}
