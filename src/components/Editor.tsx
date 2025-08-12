@@ -20,6 +20,8 @@ import Blockquote from "@tiptap/extension-blockquote";
 import HorizontalRule from "@tiptap/extension-horizontal-rule";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import Superscript from "@tiptap/extension-superscript";
+import Subscript from "@tiptap/extension-subscript";
 import { PageBreak } from "../extension/PageBreak";
 import { EditorHeader } from "./editor-header";
 import { TrashBin } from "./trash-bin";
@@ -107,6 +109,8 @@ export const Editor = (): ReactElement => {
         HTMLAttributes: { class: "task-list-item flex items-center gap-2" },
       }),
       TextStyle,
+      Superscript,
+      Subscript,
       Color,
       Highlight.configure({ 
         multicolor: true,

@@ -1,7 +1,16 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Editor } from "@tiptap/react"
-import { Bold, Italic, Underline, Strikethrough, Code, LinkIcon, ImageIcon, List, ListOrdered, ListTodo, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo, Redo, Highlighter, Table } from 'lucide-react'
+import { Bold, Italic, Underline, Strikethrough, Code, LinkIcon, ImageIcon, List, ListOrdered, ListTodo, AlignLeft, AlignCenter, AlignRight, AlignJustify, Undo, Redo, Table } from 'lucide-react'
+import { Superscript as SupIcon, Subscript as SubIcon } from 'lucide-react'
 import { HighlightColorPicker } from "./HighlightColorPicker"
+import {
+  TOOLBAR_ICON_SIZE,
+  TOOLBAR_BUTTON_CLASS,
+  TOOLBAR_SELECT_CLASS,
+  TOOLBAR_SEPARATOR_CLASS,
+  TOOLBAR_ROW_CLASS,
+} from "./toolbar.config"
 
 interface ToolbarProps {
   editor: Editor | null
@@ -20,6 +29,9 @@ const FONT_SIZES = [
 
 export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
   const [, force] = useState(0)
+  const listBtnRef = useRef<HTMLButtonElement | null>(null)
+  const [listOpen, setListOpen] = useState(false)
+  const [listPos, setListPos] = useState<{ top: number; left: number } | null>(null)
 
   // Re-render on selection/transaction so dropdowns reflect current selection
   useEffect(() => {
@@ -35,8 +47,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
     }
   }, [editor])
 
-  const btnBase =
-    "inline-flex items-center justify-center rounded-lg border border-transparent px-3 py-1.5 text-base font-medium bg-[#f9f9f9] cursor-pointer transition-colors duration-200 hover:bg-gray-100"
+  const btnBase = TOOLBAR_BUTTON_CLASS
 
   if (!editor) return null
 
@@ -70,24 +81,68 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
     }
   }
 
+  const onToggleListMenu = () => {
+    const btn = listBtnRef.current
+    if (!btn) return
+    const rect = btn.getBoundingClientRect()
+    setListPos({ top: rect.bottom + 8, left: rect.left + rect.width / 2 })
+    setListOpen((x) => !x)
+  }
+
+  useEffect(() => {
+    if (!listOpen) return
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Node
+      if (listBtnRef.current && listBtnRef.current.contains(target)) return
+      setListOpen(false)
+    }
+    const onEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setListOpen(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onEsc)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onEsc)
+    }
+  }, [listOpen])
+
+  const toggleSuperscript = () => {
+    editor
+      .chain()
+      .focus()
+      .unsetMark('subscript')
+      .toggleMark('superscript')
+      .run()
+  }
+
+  const toggleSubscript = () => {
+    editor
+      .chain()
+      .focus()
+      .unsetMark('superscript')
+      .toggleMark('subscript')
+      .run()
+  }
+
   const ToolbarSeparator = () => (
-    <div className="w-px h-6 bg-gray-200 mx-1 hidden md:block" />
+    <div className={TOOLBAR_SEPARATOR_CLASS} />
   )
 
   return (
-  
+    <>
     <div className="relative w-full">
       <div
-        className="flex flex-wrap items-center justify-center gap-2 p-1 bg-white rounded-lg"
+        className={TOOLBAR_ROW_CLASS}
         role="toolbar"
         aria-label="Editor toolbar"
       >
         {/* History */}
         <button className={btnBase} onClick={() => editor.chain().focus().undo().run()} title="Undo (Ctrl+Z)" aria-label="Undo" type="button">
-          <Undo size={18} />
+          <Undo size={TOOLBAR_ICON_SIZE} />
         </button>
         <button className={btnBase} onClick={() => editor.chain().focus().redo().run()} title="Redo (Ctrl+Y)" aria-label="Redo" type="button">
-          <Redo size={18} />
+          <Redo size={TOOLBAR_ICON_SIZE} />
         </button>
 
         <ToolbarSeparator />
@@ -96,7 +151,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
         <select
           value={headingValue}
           onChange={(e) => applyHeading(e.target.value)}
-          className="h-9 px-2.5 border border-gray-300 rounded-md bg-white text-sm text-gray-900"
+          className={TOOLBAR_SELECT_CLASS}
           aria-label="Text style"
         >
           <option value="p">P</option>
@@ -112,7 +167,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
         <select
           value={currentFontSize}
           onChange={(e) => applyFontSize(e.target.value)}
-          className="h-9 px-2.5 border border-gray-300 rounded-md bg-white text-sm text-gray-900"
+          className={TOOLBAR_SELECT_CLASS}
           aria-label="Font size"
           title="Font size"
         >
@@ -126,34 +181,36 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
 
         <ToolbarSeparator />
 
-        {/* Lists */}
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleBulletList().run()} aria-label="Bullet list" title="Bullet List" type="button">
-          <List size={18} />
-        </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleOrderedList().run()} aria-label="Numbered list" title="Numbered List" type="button">
-          <ListOrdered size={18} />
-        </button>
-        <button className={btnBase} onClick={() => editor.chain().focus().toggleTaskList().run()} aria-label="Task list" title="Task List" type="button">
-          <ListTodo size={18} />
+        {/* Lists dropdown */}
+        <button ref={listBtnRef} className={btnBase} onClick={onToggleListMenu} aria-label="Lists" title="Lists" type="button">
+          <List size={TOOLBAR_ICON_SIZE} />
         </button>
 
         <ToolbarSeparator />
 
         {/* Inline formatting */}
         <button className={btnBase} onClick={() => editor.chain().focus().toggleBold().run()} aria-label="Bold" title="Bold (Ctrl+B)" type="button">
-          <Bold size={18} />
+          <Bold size={TOOLBAR_ICON_SIZE} />
         </button>
         <button className={btnBase} onClick={() => editor.chain().focus().toggleItalic().run()} aria-label="Italic" title="Italic (Ctrl+I)" type="button">
-          <Italic size={18} />
+          <Italic size={TOOLBAR_ICON_SIZE} />
         </button>
         <button className={btnBase} onClick={() => editor.chain().focus().toggleUnderline().run()} aria-label="Underline" title="Underline (Ctrl+U)" type="button">
-          <Underline size={18} />
+          <Underline size={TOOLBAR_ICON_SIZE} />
         </button>
         <button className={btnBase} onClick={() => editor.chain().focus().toggleStrike().run()} aria-label="Strikethrough" title="Strikethrough" type="button">
-          <Strikethrough size={18} />
+          <Strikethrough size={TOOLBAR_ICON_SIZE} />
         </button>
         <button className={btnBase} onClick={() => editor.chain().focus().toggleCode().run()} aria-label="Inline code" title="Inline Code" type="button">
-          <Code size={18} />
+          <Code size={TOOLBAR_ICON_SIZE} />
+        </button>
+
+        {/* Super/Sub script */}
+        <button className={btnBase} onClick={toggleSuperscript} aria-label="Superscript" title="Superscript" type="button">
+          <SupIcon size={TOOLBAR_ICON_SIZE} />
+        </button>
+        <button className={btnBase} onClick={toggleSubscript} aria-label="Subscript" title="Subscript" type="button">
+          <SubIcon size={TOOLBAR_ICON_SIZE} />
         </button>
 
         <ToolbarSeparator />
@@ -165,16 +222,16 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
 
         {/* Alignment */}
         <button className={btnBase} onClick={() => editor.chain().focus().setTextAlign("left").run()} aria-label="Align left" title="Align Left" type="button">
-          <AlignLeft size={18} />
+          <AlignLeft size={TOOLBAR_ICON_SIZE} />
         </button>
         <button className={btnBase} onClick={() => editor.chain().focus().setTextAlign("center").run()} aria-label="Align center" title="Align Center" type="button">
-          <AlignCenter size={18} />
+          <AlignCenter size={TOOLBAR_ICON_SIZE} />
         </button>
         <button className={btnBase} onClick={() => editor.chain().focus().setTextAlign("right").run()} aria-label="Align right" title="Align Right" type="button">
-          <AlignRight size={18} />
+          <AlignRight size={TOOLBAR_ICON_SIZE} />
         </button>
         <button className={btnBase} onClick={() => editor.chain().focus().setTextAlign("justify").run()} aria-label="Justify" title="Justify" type="button">
-          <AlignJustify size={18} />
+          <AlignJustify size={TOOLBAR_ICON_SIZE} />
         </button>
 
         <ToolbarSeparator />
@@ -190,7 +247,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
           title="Add Link"
           type="button"
         >
-          <LinkIcon size={18} />
+          <LinkIcon size={TOOLBAR_ICON_SIZE} />
         </button>
 
         <button
@@ -203,7 +260,7 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
           title="Add Image"
           type="button"
         >
-          <ImageIcon size={18} />
+          <ImageIcon size={TOOLBAR_ICON_SIZE} />
         </button>
 
         <button
@@ -213,9 +270,42 @@ export const Toolbar: React.FC<ToolbarProps> = ({ editor }) => {
           title="Add Table"
           type="button"
         >
-          <Table size={18} />
+          <Table size={TOOLBAR_ICON_SIZE} />
         </button>
       </div>
     </div>
+      {listOpen && listPos && createPortal(
+        <div
+          style={{ position: 'fixed', top: listPos!.top, left: listPos!.left, transform: 'translateX(-50%)', zIndex: 60 }}
+          className="w-44 rounded-lg border border-gray-200 bg-white p-1 shadow-xl"
+        >
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-800 hover:bg-gray-100"
+            onClick={() => { editor?.chain().focus().toggleBulletList().run(); setListOpen(false) }}
+            type="button"
+          >
+            <List size={TOOLBAR_ICON_SIZE} />
+            <span>Bullet List</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-800 hover:bg-gray-100"
+            onClick={() => { editor?.chain().focus().toggleOrderedList().run(); setListOpen(false) }}
+            type="button"
+          >
+            <ListOrdered size={TOOLBAR_ICON_SIZE} />
+            <span>Ordered List</span>
+          </button>
+          <button
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-gray-800 hover:bg-gray-100"
+            onClick={() => { editor?.chain().focus().toggleTaskList().run(); setListOpen(false) }}
+            type="button"
+          >
+            <ListTodo size={TOOLBAR_ICON_SIZE} />
+            <span>Task List</span>
+          </button>
+        </div>,
+        document.body
+      )}
+  </>
   )
 }

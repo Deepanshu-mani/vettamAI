@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Editor } from '@tiptap/react';
 import { Highlighter, X } from 'lucide-react';
+import { TOOLBAR_BUTTON_CLASS, TOOLBAR_ICON_SIZE } from './toolbar.config';
 
 interface HighlightColorPickerProps {
   editor: Editor | null;
@@ -26,8 +28,9 @@ export const HighlightColorPicker: React.FC<HighlightColorPickerProps> = ({ edit
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; left: number; placement: 'top' | 'bottom' } | null>(null);
 
-  const btnBase = "inline-flex items-center justify-center rounded-lg border border-transparent px-3 py-1.5 text-base font-medium bg-[#f9f9f9] cursor-pointer transition-colors duration-200 hover:bg-gray-100";
+  const btnBase = TOOLBAR_BUTTON_CLASS;
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -51,8 +54,27 @@ export const HighlightColorPicker: React.FC<HighlightColorPickerProps> = ({ edit
     };
   }, [isOpen]);
 
+  const updatePosition = () => {
+    const btn = buttonRef.current;
+    if (!btn) return;
+    const rect = btn.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const estimatedHeight = 220; // approximate dropdown height
+    const spaceBelow = viewportHeight - rect.bottom;
+    const placement: 'top' | 'bottom' = spaceBelow < estimatedHeight ? 'top' : 'bottom';
+    const top = placement === 'bottom' ? rect.bottom + 8 : rect.top - estimatedHeight - 8;
+    const left = rect.left + rect.width / 2;
+    setPosition({ top, left, placement });
+  };
+
   const handleToggle = () => {
-    setIsOpen(!isOpen);
+    const next = !isOpen;
+    setIsOpen(next);
+    if (!next) return;
+    // position immediately
+    updatePosition();
+    // and after rendering to correct height if needed
+    setTimeout(updatePosition, 0);
   };
 
   const handleColorSelect = (color: string) => {
@@ -79,14 +101,14 @@ export const HighlightColorPicker: React.FC<HighlightColorPickerProps> = ({ edit
         title="Highlight"
         type="button"
       >
-        <Highlighter size={18} />
+        <Highlighter size={TOOLBAR_ICON_SIZE} />
       </button>
 
-      {isOpen && (
+      {isOpen && position && createPortal(
         <div
           ref={dropdownRef}
-          className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg p-3 z-50"
-          style={{ minWidth: '240px' }}
+          style={{ position: 'fixed', top: position.top, left: position.left, transform: 'translateX(-50%)', zIndex: 60, minWidth: '240px' }}
+          className="bg-white border border-gray-200 rounded-lg shadow-xl p-3"
         >
           <div className="flex items-center justify-between mb-3">
             <span className="text-sm font-medium text-gray-700">Highlight Color</span>
@@ -96,24 +118,23 @@ export const HighlightColorPicker: React.FC<HighlightColorPickerProps> = ({ edit
               type="button"
               title="Clear highlight"
             >
-              <X size={12} />
-              Clear
+              <X size={20} className='text-red-500 border border-red-500 rounded-full hover:bg-red-500 hover:text-white transition-all ease-in-out duration-200 p-[2px]' />
             </button>
           </div>
-          
           <div className="grid grid-cols-6 gap-2">
             {HIGHLIGHT_COLORS.map((color) => (
               <button
                 key={color}
                 onClick={() => handleColorSelect(color)}
-                className="w-8 h-8 rounded-md border border-gray-200 hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-8 h-8 rounded-full border border-gray-200 hover:scale-105 transition-transform focus:outline-none focus:ring-2 focus:ring-blue-500"
                 style={{ backgroundColor: color }}
                 title={`Highlight with ${color}`}
                 type="button"
               />
             ))}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
