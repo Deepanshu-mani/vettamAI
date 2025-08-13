@@ -40,14 +40,14 @@ export const Editor = (): ReactElement => {
   const [wordCount, setWordCount] = useState(0)
   const [charCount, setCharCount] = useState(0)
   const [pageCount, setPageCount] = useState(1)
-  const [currentPage, setCurrentPage] = useState(1)
+  const [currentPage, _setCurrentPage] = useState(1)
 
   // Header/Footer and preview controls
   const [headerEnabled, setHeaderEnabled] = useState(true)
   const [footerEnabled, setFooterEnabled] = useState(true)
   const [headerAlign, setHeaderAlign] = useState<Align>("center")
   const [footerAlign, setFooterAlign] = useState<Align>("center")
-  const [showPageNumbers, setShowPageNumbers] = useState(true)
+  const [showPageNumbers, _setShowPageNumbers] = useState(true)
 
   // New UI state
   const [activeTab, setActiveTab] = useState<"text" | "page">("text")
@@ -58,7 +58,7 @@ export const Editor = (): ReactElement => {
   const [headerHtml, setHeaderHtml] = useState("Document Header - Page {pageNumber} of {totalPages}")
   const [footerHtml, setFooterHtml] = useState("© 2024 Document Footer • Page {pageNumber}")
 
-  const { setOnDropDelete, isDragging, dragPayload, onDropDelete } = useContext(TrashContext)
+  const { setOnDropDelete, dragPayload, onDropDelete } = useContext(TrashContext)
 
   const editorContainerRef = useRef<HTMLDivElement | null>(null)
   const editorElementRef = useRef<HTMLElement | null>(null)
@@ -176,7 +176,7 @@ export const Editor = (): ReactElement => {
         class: "ProseMirror-content focus:outline-none max-w-none min-h-full prose prose-lg max-w-none",
         placeholder: "Start typing your document here...",
       },
-      handleKeyDown: (view, event) => {
+      handleKeyDown: (_view, event) => {
         // Handle Ctrl/Cmd + Enter for page breaks
         if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
           event.preventDefault()
@@ -185,7 +185,7 @@ export const Editor = (): ReactElement => {
         }
         return false
       },
-      handleDrop: (view, event, slice, moved) => {
+      handleDrop: (_view, _event, _slice, moved) => {
         if (moved) {
           return false
         }

@@ -21,7 +21,7 @@ interface DocumentSearchProps {
 export const DocumentSearch: React.FC<DocumentSearchProps> = ({ editorElement, onResultClick }) => {
   const [searchTerm, setSearchTerm] = useState("")
   const [currentResultIndex, setCurrentResultIndex] = useState(0)
-  const [highlightedElements, setHighlightedElements] = useState<HTMLElement[]>([])
+  const [_highlightedElements, setHighlightedElements] = useState<HTMLElement[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [caseSensitive, setCaseSensitive] = useState(false)
   const [wholeWords, setWholeWords] = useState(false)

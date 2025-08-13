@@ -162,18 +162,6 @@ export const PaginatedEditor = forwardRef<PaginatedEditorRef, PaginatedEditorPro
 
     if (!editor) return null
 
-    const alignToStyle = (align: Align) => {
-      switch (align) {
-        case "start":
-          return "text-align: left;"
-        case "end":
-          return "text-align: right;"
-        case "center":
-          return "text-align: center;"
-        default:
-          return "text-align: left;"
-      }
-    }
 
     return (
       <div ref={containerRef} className="space-y-6">
