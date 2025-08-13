@@ -1,44 +1,46 @@
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { loremIpsum } from "lorem-ipsum";
-import type { ReactElement } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import { TextAlign } from "@tiptap/extension-text-align";
-import Underline from "@tiptap/extension-underline";
-import Link from "@tiptap/extension-link";
-import Image from "@tiptap/extension-image";
-import { Table } from "@tiptap/extension-table";
-import { TableRow } from "@tiptap/extension-table-row";
-import { TableHeader } from "@tiptap/extension-table-header";
-import { TableCell } from "@tiptap/extension-table-cell";
-import { TextStyle } from "@tiptap/extension-text-style";
-import Color from "@tiptap/extension-color";
-import Highlight from "@tiptap/extension-highlight";
-import FontFamily from "@tiptap/extension-font-family";
-import CodeBlock from "@tiptap/extension-code-block";
-import Blockquote from "@tiptap/extension-blockquote";
-import HorizontalRule from "@tiptap/extension-horizontal-rule";
-import TaskList from "@tiptap/extension-task-list";
-import TaskItem from "@tiptap/extension-task-item";
-import Superscript from "@tiptap/extension-superscript";
-import Subscript from "@tiptap/extension-subscript";
-import { PageBreak } from "../extension/PageBreak";
-import { EditorHeader } from "./editor-header";
-import { TrashBin } from "./trash-bin";
-import { CollapsibleSidebar } from "./CollapsibleSidebar";
-import { FooterBar } from "./FooterBar";
-import { TrashContext } from "../context/TextContext";
-import { PagePreviewPane } from "./page-preview-pane";
-import { PageContainer } from "./PageContainer";
-import { PaginatedEditor } from "./PaginatedEditor";
+
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
+import type { ReactElement } from "react"
+import { useEditor } from "@tiptap/react"
+import StarterKit from "@tiptap/starter-kit"
+import { TextAlign } from "@tiptap/extension-text-align"
+import Underline from "@tiptap/extension-underline"
+import Link from "@tiptap/extension-link"
+import Image from "@tiptap/extension-image"
+import { Table } from "@tiptap/extension-table"
+import { TableRow } from "@tiptap/extension-table-row"
+import { TableHeader } from "@tiptap/extension-table-header"
+import { TableCell } from "@tiptap/extension-table-cell"
+import { TextStyle } from "@tiptap/extension-text-style"
+import Color from "@tiptap/extension-color"
+import Highlight from "@tiptap/extension-highlight"
+import FontFamily from "@tiptap/extension-font-family"
+import CodeBlock from "@tiptap/extension-code-block"
+import Blockquote from "@tiptap/extension-blockquote"
+import HorizontalRule from "@tiptap/extension-horizontal-rule"
+import TaskList from "@tiptap/extension-task-list"
+import TaskItem from "@tiptap/extension-task-item"
+import Superscript from "@tiptap/extension-superscript"
+import Subscript from "@tiptap/extension-subscript"
+import { FontSize } from "@tiptap/extension-text-style"
+import { PageBreak } from "../extension/PageBreak"
+import { EditorHeader } from "./editor-header"
+import { TrashBin } from "./trash-bin"
+import { CollapsibleSidebar } from "./CollapsibleSidebar"
+import { FooterBar } from "./FooterBar"
+import { TrashContext } from "../context/TextContext"
+import { PagePreviewPane } from "./page-preview-pane"
+import { PaginatedEditor, type PaginatedEditorRef } from "./PaginatedEditor"
 
 type Align = "start" | "center" | "end"
 
+// Sample content removed as requested
+
 export const Editor = (): ReactElement => {
-  const [wordCount, setWordCount] = useState(0);
-  const [charCount, setCharCount] = useState(0);
-  const [pageCount, setPageCount] = useState(1);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [wordCount, setWordCount] = useState(0)
+  const [charCount, setCharCount] = useState(0)
+  const [pageCount, setPageCount] = useState(1)
+  const [currentPage, setCurrentPage] = useState(1)
 
   // Header/Footer and preview controls
   const [headerEnabled, setHeaderEnabled] = useState(true)
@@ -46,25 +48,31 @@ export const Editor = (): ReactElement => {
   const [headerAlign, setHeaderAlign] = useState<Align>("center")
   const [footerAlign, setFooterAlign] = useState<Align>("center")
   const [showPageNumbers, setShowPageNumbers] = useState(true)
-  
+
   // New UI state
-  const [activeTab, setActiveTab] = useState<'text' | 'page'>('text')
+  const [activeTab, setActiveTab] = useState<"text" | "page">("text")
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [showRuler, setShowRuler] = useState(false)
-  const [zoom, setZoom] = useState(1)
+  const [zoom, setZoom] = useState(0.8) // Better default zoom for A4
 
-  const [headerHtml, setHeaderHtml] = useState("<p>Document Header</p>");
-  const [footerHtml, setFooterHtml] = useState("<p>Document Footer</p>");
+  const [headerHtml, setHeaderHtml] = useState(
+    "<p><strong>Professional Document - Page {pageNumber} of {totalPages}</strong></p>",
+  )
+  const [footerHtml, setFooterHtml] = useState("<p>© 2024 Document Footer • Page {pageNumber}</p>")
 
-  const { setOnDropDelete, isDragging, dragPayload, onDropDelete } = useContext(TrashContext);
+  const { setOnDropDelete, isDragging, dragPayload, onDropDelete } = useContext(TrashContext)
 
-  const editorContainerRef = useRef<HTMLDivElement | null>(null);
-  const editorElementRef = useRef<HTMLElement | null>(null);
-  const paginatedEditorRef = useRef<{ updatePagination: () => void } | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement | null>(null)
+  const editorElementRef = useRef<HTMLElement | null>(null)
+  const paginatedEditorRef = useRef<PaginatedEditorRef | null>(null)
 
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        hardBreak: {
+          keepMarks: false,
+        },
+      }),
       TextAlign.configure({
         types: ["heading", "paragraph"],
       }),
@@ -109,13 +117,14 @@ export const Editor = (): ReactElement => {
         HTMLAttributes: { class: "task-list-item flex items-center gap-2" },
       }),
       TextStyle,
+      FontSize,
       Superscript,
       Subscript,
       Color,
-      Highlight.configure({ 
+      Highlight.configure({
         multicolor: true,
         HTMLAttributes: {
-          class: 'highlight-mark',
+          class: "highlight-mark",
         },
       }),
       FontFamily.configure({ types: ["textStyle"] }),
@@ -136,125 +145,324 @@ export const Editor = (): ReactElement => {
       }),
       PageBreak,
     ],
-    content: loremIpsum({
-      count: 20,
-      units: "paragraphs",
-      format: "html"
-    }),
+    content: "",
     onUpdate: ({ editor }) => {
-      const text = editor.getText();
-      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-      setWordCount(words);
-      setCharCount(text.length);
+      const text = editor.getText()
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0
+      setWordCount(words)
+      setCharCount(text.length)
+
       // Trigger pagination update
       if (paginatedEditorRef.current) {
-        paginatedEditorRef.current.updatePagination();
+        setTimeout(() => {
+          paginatedEditorRef.current?.updatePagination()
+        }, 100)
       }
     },
     editorProps: {
       attributes: {
         class: "ProseMirror-content focus:outline-none max-w-none min-h-full",
+        placeholder: "Start typing your document here...",
       },
       handleDrop: (view, event, slice, moved) => {
-        // Handle drag and drop properly
         if (moved) {
-          return false; // Let TipTap handle the move
+          return false
         }
-        return false;
+        return false
       },
     },
-  });
+  })
 
   // Update editor element ref when editor changes
   useEffect(() => {
     if (editor?.view?.dom) {
-      editorElementRef.current = editor.view.dom as HTMLElement;
+      editorElementRef.current = editor.view.dom as HTMLElement
     }
-  }, [editor]);
+  }, [editor])
 
   // Keep current HTML for preview
   const currentHtml = useMemo(() => editor?.getHTML() ?? "", [editor?.state])
 
+  // Get current pages for preview
+  const currentPages = useMemo(() => {
+    return paginatedEditorRef.current?.getCleanPages() ?? []
+  }, [editor?.state])
+
   // Handle page count updates from PaginatedEditor
   const handlePageCountChange = useCallback((count: number) => {
-    setPageCount(count);
-  }, []);
+    setPageCount(count)
+  }, [])
 
-  // Provide drag-to-trash deletion behavior
+  // Enhanced drag-to-trash deletion behavior with better drop zone handling
   useEffect(() => {
-    if (!editor) return;
-    
+    if (!editor) return
+
     setOnDropDelete(() => (payload: { type: string; pos: number }) => {
-      if (!payload) return;
-      
-      if (payload.type === 'page-break' && payload.pos >= 0) {
-        // Use a more reliable deletion method
-        const { state, view } = editor;
-        const from = payload.pos;
-        const node = state.doc.nodeAt(from);
-        
-        if (node && node.type.name === 'pageBreak') {
-          const tr = state.tr.delete(from, from + node.nodeSize);
-          view.dispatch(tr);
+      if (!payload) return
+
+      if (payload.type === "page-break" && payload.pos >= 0) {
+        const { state, view } = editor
+        const from = payload.pos
+        const node = state.doc.nodeAt(from)
+
+        if (node && node.type.name === "pageBreak") {
+          const tr = state.tr.delete(from, from + node.nodeSize)
+          view.dispatch(tr)
+
+          // Force pagination update after deletion
+          setTimeout(() => {
+            paginatedEditorRef.current?.updatePagination()
+          }, 100)
         }
       }
-    });
-    
-    return () => setOnDropDelete(null);
-  }, [editor, setOnDropDelete]);
+    })
 
-  // Handle trash drop
+    return () => setOnDropDelete(null)
+  }, [editor, setOnDropDelete])
+
+  // Enhanced trash drop handling
   useEffect(() => {
-    const trashBin = document.getElementById('trash-bin');
-    if (!trashBin) return;
+    const trashBin = document.getElementById("trash-bin")
+    if (!trashBin) return
 
     const handleDragOver = (e: DragEvent) => {
-      e.preventDefault();
-    };
+      e.preventDefault()
+      e.dataTransfer!.dropEffect = "move"
+    }
 
     const handleDrop = (e: DragEvent) => {
-      e.preventDefault();
+      e.preventDefault()
       if (onDropDelete && dragPayload) {
-        onDropDelete(dragPayload);
+        onDropDelete(dragPayload)
       }
-    };
+    }
 
-    trashBin.addEventListener('dragover', handleDragOver);
-    trashBin.addEventListener('drop', handleDrop);
+    trashBin.addEventListener("dragover", handleDragOver)
+    trashBin.addEventListener("drop", handleDrop)
 
     return () => {
-      trashBin.removeEventListener('dragover', handleDragOver);
-      trashBin.removeEventListener('drop', handleDrop);
-    };
-  }, [onDropDelete, dragPayload]);
+      trashBin.removeEventListener("dragover", handleDragOver)
+      trashBin.removeEventListener("drop", handleDrop)
+    }
+  }, [onDropDelete, dragPayload])
 
   const handlePrint = () => {
-    window.print();
-  };
+    // Get clean pages for printing
+    const cleanPages = paginatedEditorRef.current?.getCleanPages() ?? [editor?.getHTML() ?? ""]
 
-  const handleExport = () => {
-    if (!editor) return;
+    // Filter out empty pages
+    const nonEmptyPages = cleanPages.filter((content) => {
+      const tempDiv = document.createElement("div")
+      tempDiv.innerHTML = content
+      const textContent = tempDiv.textContent?.trim() || ""
+      return textContent.length > 0
+    })
 
-    // Get pages from PaginatedEditor
-    const pages = paginatedEditorRef.current ? 
-      Array.from(document.querySelectorAll('.paginated-page')).map(page => page.innerHTML) : 
-      [editor.getHTML()];
-    
-    const total = pages.length;
+    if (nonEmptyPages.length === 0) {
+      alert("No content to print")
+      return
+    }
 
     const alignToStyle = (a: Align) =>
-      a === "start" ? "text-align:left" : a === "end" ? "text-align:right" : "text-align:center"
+      a === "start" ? "text-align: left;" : a === "end" ? "text-align: right;" : "text-align: center;"
 
-    const pageHtml = pages
-      .map((content, i) => `
-        <div class="page">
-          ${headerEnabled ? `<div class="page-header" style="${alignToStyle(headerAlign)}">${headerHtml}</div>` : ""}
-          <div class="page-body">${content}</div>
-          ${footerEnabled ? `<div class="page-footer" style="${alignToStyle(footerAlign)}">${footerHtml}</div>` : ""}
-          <div class="page-num">Page ${i + 1} of ${total}</div>
+    // Create clean HTML structure for printing with proper page numbers
+    const printContent = nonEmptyPages
+      .map(
+        (content, i) => `
+        <div class="print-page">
+          ${headerEnabled ? `<div class="print-header" style="${alignToStyle(headerAlign)}">${headerHtml.replace(/\{pageNumber\}/g, (i + 1).toString()).replace(/\{totalPages\}/g, nonEmptyPages.length.toString())}</div>` : ""}
+          <div class="print-content">${content}</div>
+          ${footerEnabled ? `<div class="print-footer" style="${alignToStyle(footerAlign)}">${footerHtml.replace(/\{pageNumber\}/g, (i + 1).toString()).replace(/\{totalPages\}/g, nonEmptyPages.length.toString())}</div>` : ""}
         </div>
+      `,
+      )
+      .join("")
+
+    // Create print styles
+    const printStyles = `
+      <style>
+        @page {
+          size: A4;
+          margin: 25.4mm;
+        }
+        
+        body {
+          font-family: 'Times New Roman', Times, serif;
+          font-size: 12pt;
+          line-height: 1.5;
+          color: #000;
+          margin: 0;
+          padding: 0;
+        }
+        
+        .print-page {
+          page-break-after: always;
+          page-break-inside: avoid;
+          min-height: 247mm;
+          display: flex;
+          flex-direction: column;
+        }
+        
+        .print-page:last-child {
+          page-break-after: auto;
+        }
+        
+        .print-header {
+          min-height: 15.9mm;
+          padding-bottom: 6mm;
+          border-bottom: 1px solid #e5e7eb;
+          margin-bottom: 6mm;
+        }
+        
+        .print-content {
+          flex: 1;
+        }
+        
+        .print-footer {
+          min-height: 15.9mm;
+          padding-top: 6mm;
+          border-top: 1px solid #e5e7eb;
+          margin-top: 6mm;
+          position: relative;
+        }
+        
+        /* Typography */
+        h1 { font-size: 24pt; margin: 2em 0 1em; page-break-after: avoid; text-align: center; border-bottom: 2px solid #333; padding-bottom: 0.5em; }
+        h2 { font-size: 18pt; margin: 1.8em 0 0.8em; page-break-after: avoid; border-bottom: 1px solid #666; padding-bottom: 0.3em; }
+        h3 { font-size: 16pt; margin: 1.6em 0 0.6em; page-break-after: avoid; }
+        h4 { font-size: 14pt; margin: 1.4em 0 0.5em; }
+        h5 { font-size: 13pt; margin: 1.2em 0 0.4em; }
+        h6 { font-size: 12pt; margin: 1em 0 0.3em; font-style: italic; }
+        
+        p { margin: 1em 0; text-align: justify; orphans: 2; widows: 2; }
+        
+        ul, ol { margin: 1em 0; padding-left: 1.5em; }
+        li { margin: 0.25em 0; }
+        
+        blockquote {
+          border-left: 4px solid #3b82f6;
+          padding: 1em 1.5em;
+          margin: 1.5em 0;
+          font-style: italic;
+          background: #f8fafc;
+          border-radius: 0 0.375rem 0.375rem 0;
+          page-break-inside: avoid;
+        }
+        
+        table {
+          border-collapse: collapse;
+          width: 100%;
+          margin: 1em 0;
+          page-break-inside: avoid;
+          font-size: 11pt;
+        }
+        
+        th, td {
+          border: 1px solid #d1d5db;
+          padding: 0.75em;
+          text-align: left;
+        }
+        
+        th {
+          background: #f9fafb;
+          font-weight: 600;
+        }
+        
+        tbody tr:nth-child(even) {
+          background: #f9fafb;
+        }
+        
+        pre {
+          background: #f8f9fa;
+          padding: 1em;
+          border-radius: 0.25em;
+          overflow-x: auto;
+          page-break-inside: avoid;
+        }
+        
+        code {
+          background: #f1f5f9;
+          padding: 0.2em 0.4em;
+          border-radius: 0.25em;
+          font-size: 0.9em;
+        }
+        
+        img {
+          max-width: 100%;
+          height: auto;
+        }
+        
+        .highlight-mark {
+          background-color: #fef3c7;
+          padding: 1px 2px;
+          border-radius: 2px;
+        }
+      </style>
+    `
+
+    // Create print window
+    const printWindow = window.open("", "_blank")
+    if (printWindow) {
+      printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Document Print</title>
+            <meta charset="utf-8">
+            ${printStyles}
+          </head>
+          <body>
+            ${printContent}
+          </body>
+        </html>
       `)
-      .join("");
+      printWindow.document.close()
+
+      // Wait for content to load then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print()
+          printWindow.close()
+        }, 500)
+      }
+    }
+  }
+
+  const handleExport = () => {
+    if (!editor) return
+
+    // Get clean pages for export
+    const cleanPages = paginatedEditorRef.current?.getCleanPages() ?? [editor.getHTML()]
+
+    // Filter out empty pages
+    const nonEmptyPages = cleanPages.filter((content) => {
+      const tempDiv = document.createElement("div")
+      tempDiv.innerHTML = content
+      const textContent = tempDiv.textContent?.trim() || ""
+      return textContent.length > 0
+    })
+
+    if (nonEmptyPages.length === 0) {
+      alert("No content to export")
+      return
+    }
+
+    const alignToStyle = (a: Align) =>
+      a === "start" ? "text-align: left;" : a === "end" ? "text-align: right;" : "text-align: center;"
+
+    // Create clean page structure with proper page numbers
+    const pageHtml = nonEmptyPages
+      .map(
+        (content, i) => `
+        <div class="page">
+          ${headerEnabled ? `<div class="page-header" style="${alignToStyle(headerAlign)}">${headerHtml.replace(/\{pageNumber\}/g, (i + 1).toString()).replace(/\{totalPages\}/g, nonEmptyPages.length.toString())}</div>` : ""}
+          <div class="page-body">${content}</div>
+          ${footerEnabled ? `<div class="page-footer" style="${alignToStyle(footerAlign)}">${footerHtml.replace(/\{pageNumber\}/g, (i + 1).toString()).replace(/\{totalPages\}/g, nonEmptyPages.length.toString())}</div>` : ""}
+        </div>
+      `,
+      )
+      .join("")
 
     const htmlContent = `
       <!DOCTYPE html>
@@ -263,102 +471,209 @@ export const Editor = (): ReactElement => {
           <title>Document Export</title>
           <meta charset="utf-8">
           <style>
-            :root { --page-w: 210mm; --page-h: 297mm; }
-            body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; line-height: 1.6; margin: 0; padding: 20px; color: #333; background: #f3f4f6; }
-            .page { width: var(--page-w); min-height: var(--page-h); margin: 0 auto 1rem; background: white; box-shadow: 0 0 10px rgba(0,0,0,0.1); position: relative; display: flex; flex-direction: column; }
-            .page-header, .page-footer { padding: 20mm 32mm; color: #6b7280; }
-            .page-header { min-height: 20mm; display: flex; align-items: center; }
-            .page-footer { min-height: 20mm; display: flex; align-items: center; }
-            .page-body { padding: 0 32mm; flex: 1; }
-            .page-num { position: absolute; right: 32mm; bottom: 8mm; color: #6b7280; font-size: 10pt; }
+            @page { size: A4; margin: 25.4mm; }
+            
+            body {
+              font-family: 'Times New Roman', Times, serif;
+              font-size: 12pt;
+              line-height: 1.5;
+              margin: 0;
+              padding: 20px;
+              color: #000;
+              background: #f3f4f6;
+            }
+            
+            .page {
+              width: 210mm;
+              min-height: 297mm;
+              margin: 0 auto 20mm;
+              background: white;
+              box-shadow: 0 0 10px rgba(0,0,0,0.1);
+              position: relative;
+              display: flex;
+              flex-direction: column;
+              page-break-after: always;
+              page-break-inside: avoid;
+            }
+            
+            .page:last-child {
+              page-break-after: auto;
+            }
+            
+            .page-header {
+              padding: 15.9mm 25.4mm 6mm;
+              color: #6b7280;
+              min-height: 15.9mm;
+              display: flex;
+              align-items: center;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            
+            .page-body {
+              padding: 6mm 25.4mm;
+              flex: 1;
+            }
+            
+            .page-footer {
+              padding: 6mm 25.4mm 15.9mm;
+              color: #6b7280;
+              min-height: 15.9mm;
+              display: flex;
+              align-items: center;
+              border-top: 1px solid #e5e7eb;
+              position: relative;
+            }
+            
             @media print {
               body { padding: 0; background: white; }
-              .page { page-break-after: always; box-shadow: none; margin: 0 auto; }
+              .page { box-shadow: none; margin: 0; }
             }
-            h1, h2, h3, h4, h5, h6 { margin-top: 1.5em; margin-bottom: 0.5em; }
-            p { margin: 1em 0; }
-            ul { list-style: disc; padding-left: 1.5rem; margin: 0.5rem 0; }
-            ol { list-style: decimal; padding-left: 1.5rem; margin: 0.5rem 0; }
-            li { margin: 0.25rem 0; }
+            
+            /* Typography */
+            h1 { font-size: 24pt; margin: 2em 0 1em; font-weight: 700; page-break-after: avoid; text-align: center; border-bottom: 2px solid #333; padding-bottom: 0.5em; }
+            h2 { font-size: 18pt; margin: 1.8em 0 0.8em; font-weight: 700; page-break-after: avoid; border-bottom: 1px solid #666; padding-bottom: 0.3em; }
+            h3 { font-size: 16pt; margin: 1.6em 0 0.6em; font-weight: 700; page-break-after: avoid; }
+            h4 { font-size: 14pt; margin: 1.4em 0 0.5em; font-weight: 700; }
+            h5 { font-size: 13pt; margin: 1.2em 0 0.4em; font-weight: 700; }
+            h6 { font-size: 12pt; margin: 1em 0 0.3em; font-weight: 600; font-style: italic; }
+            
+            p { margin: 1em 0; text-align: justify; orphans: 2; widows: 2; }
+            
+            ul, ol { list-style-position: outside; padding-left: 1.5em; margin: 1em 0; }
+            li { margin: 0.25em 0; }
+            
+            .task-list { list-style: none; padding-left: 0; }
             .task-list-item { list-style: none; }
-            blockquote { border-left: 4px solid #e5e7eb; padding-left: 1rem; margin: 1.5em 0; font-style: italic; }
-            code { background: #f3f4f6; padding: 0.2em 0.4em; border-radius: 0.25rem; font-size: 0.875em; }
-            pre { background: #f3f4f6; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
-            table { border-collapse: collapse; width: 100%; margin: 1em 0; }
-            th, td { border: 1px solid #d1d5db; padding: 0.5rem; text-align: left; }
-            th { background: #f9fafb; font-weight: 600; }
-            img { max-width: 100%; height: auto; border-radius: 0.5rem; }
+            
+            blockquote {
+              border-left: 4px solid #3b82f6;
+              padding: 1em 1.5em;
+              margin: 1.5em 0;
+              font-style: italic;
+              background: #f8fafc;
+              border-radius: 0 0.375rem 0.375rem 0;
+              page-break-inside: avoid;
+            }
+            
+            code {
+              background: #f1f5f9;
+              padding: 0.2em 0.4em;
+              border-radius: 0.25em;
+              font-size: 0.9em;
+              font-family: 'Courier New', monospace;
+            }
+            
+            pre {
+              background: #f8f9fa;
+              padding: 1em;
+              border-radius: 0.5em;
+              overflow-x: auto;
+              page-break-inside: avoid;
+              font-family: 'Courier New', monospace;
+            }
+            
+            table {
+              border-collapse: collapse;
+              width: 100%;
+              margin: 1em 0;
+              page-break-inside: avoid;
+              font-size: 11pt;
+            }
+            
+            th, td {
+              border: 1px solid #d1d5db;
+              padding: 0.75em;
+              text-align: left;
+            }
+            
+            th {
+              background: #f9fafb;
+              font-weight: 600;
+            }
+            
+            tbody tr:nth-child(even) {
+              background: #f9fafb;
+            }
+            
+            img {
+              max-width: 100%;
+              height: auto;
+              border-radius: 0.5em;
+            }
+            
+            .highlight-mark {
+              background-color: #fef3c7;
+              padding: 1px 2px;
+              border-radius: 2px;
+            }
           </style>
         </head>
         <body>
           ${pageHtml}
         </body>
       </html>
-    `;
+    `
 
-    const blob = new Blob([htmlContent], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "document.html";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+    const blob = new Blob([htmlContent], { type: "text/html" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "document.html"
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
 
   const handleInsertPageBreak = () => {
-    if (!editor) return;
-    editor.chain().focus().setPageBreak().run();
-  };
+    if (!editor) return
+    editor.chain().focus().setPageBreak().run()
+  }
 
   const handleFitToWidth = () => {
-    // Calculate zoom to fit page width to container
     if (editorContainerRef.current) {
-      const container = editorContainerRef.current;
-      if (container) {
-        const containerWidth = container.clientWidth - 64; // Account for padding
-        const pageWidth = 210 * 3.78; // 210mm * 3.78 pixels per mm
-        const newZoom = Math.min(1.5, containerWidth / pageWidth);
-        setZoom(newZoom);
-      }
+      const container = editorContainerRef.current
+      const containerWidth = container.clientWidth - 64
+      const pageWidth = 794 // A4 width in pixels
+      const newZoom = Math.min(1.2, Math.max(0.3, containerWidth / pageWidth))
+      setZoom(newZoom)
     }
-  };
+  }
 
   const handlePreviousPage = () => {
-    setCurrentPage(Math.max(1, currentPage - 1));
-  };
+    setCurrentPage(Math.max(1, currentPage - 1))
+  }
 
   const handleNextPage = () => {
-    setCurrentPage(Math.min(pageCount, currentPage + 1));
-  };
+    setCurrentPage(Math.min(pageCount, currentPage + 1))
+  }
 
   const handleHeadingClick = (element: HTMLElement) => {
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
+    element.scrollIntoView({ behavior: "smooth", block: "center" })
+  }
 
   const handleSearchResultClick = (element: HTMLElement) => {
-    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  };
+    element.scrollIntoView({ behavior: "smooth", block: "center" })
+  }
 
   const handlePageClick = (pageIndex: number) => {
-    const pageElements = document.querySelectorAll('.paginated-page');
-    const targetPage = pageElements[pageIndex] as HTMLElement;
+    const pageElements = document.querySelectorAll(".paginated-page")
+    const targetPage = pageElements[pageIndex] as HTMLElement
     if (targetPage) {
-      targetPage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      targetPage.scrollIntoView({ behavior: "smooth", block: "start" })
     }
-  };
+  }
 
   if (!editor) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-lg">Loading editor...</div>
       </div>
-    );
+    )
   }
 
   return (
-    <div className="min-h-screen bg-white flex flex-col">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <EditorHeader
         editor={editor}
         wordCount={wordCount}
@@ -384,30 +699,39 @@ export const Editor = (): ReactElement => {
         onPageBreak={handleInsertPageBreak}
       />
 
-      <div className="flex-1 overflow-hidden bg-soft">
-        <div className={`h-full transition-all duration-300 ${sidebarVisible ? 'mr-[300px]' : ''}`}>
+      <div className="flex-1 overflow-hidden">
+        <div className={`h-full transition-all duration-300 ${sidebarVisible ? "mr-[350px]" : ""}`}>
           {/* Main editor area */}
-          <main className="flex-1 overflow-auto">
-            <div ref={editorContainerRef} className="container mx-auto py-6 px-4">
-              {/* Ruler */}
+          <main className="flex-1 overflow-auto bg-gray-100">
+            <div ref={editorContainerRef} className="container mx-auto py-8 px-4">
+              {/* Enhanced Ruler */}
               {showRuler && (
-                <div 
-                  className="mb-4 h-6 bg-white border border-gray-200 rounded relative overflow-hidden mx-auto"
-                  style={{ 
-                    width: `${210 * 3.78 * zoom}px`,
+                <div
+                  className="mb-6 h-10 bg-white border border-gray-300 rounded-lg relative overflow-hidden mx-auto shadow-sm"
+                  style={{
+                    width: `${794 * zoom}px`, // A4 width
                     transform: `scale(${zoom})`,
-                    transformOrigin: 'center top'
+                    transformOrigin: "center top",
                   }}
                 >
-                  <div className="absolute inset-0 flex">
+                  {/* Horizontal ruler */}
+                  <div className="absolute inset-0 flex border-b border-gray-200">
                     {Array.from({ length: 21 }, (_, i) => (
-                      <div key={i} className="flex-1 border-r border-gray-200 relative">
-                        <div className="absolute top-0 left-0 text-xs text-gray-400 px-1">
-                          {i * 10}mm
-                        </div>
-                        <div className="absolute bottom-0 left-1/2 w-px h-2 bg-gray-300"></div>
+                      <div key={i} className="flex-1 border-r border-gray-300 relative">
+                        <div className="absolute top-1 left-1 text-xs text-gray-500 font-mono">{i * 10}mm</div>
+                        <div className="absolute bottom-0 left-1/2 w-px h-4 bg-gray-400"></div>
+                        {/* Minor ticks */}
+                        <div className="absolute bottom-0 left-1/4 w-px h-2 bg-gray-300"></div>
+                        <div className="absolute bottom-0 left-3/4 w-px h-2 bg-gray-300"></div>
                       </div>
                     ))}
+                  </div>
+
+                  {/* Vertical ruler indicator */}
+                  <div className="absolute right-0 top-0 w-8 h-full bg-gray-50 border-l border-gray-300 flex flex-col justify-between text-xs text-gray-500 font-mono py-1">
+                    <span>0</span>
+                    <span className="transform -rotate-90 origin-center">mm</span>
+                    <span>297</span>
                   </div>
                 </div>
               )}
@@ -431,7 +755,7 @@ export const Editor = (): ReactElement => {
           </main>
         </div>
 
-        {/* Collapsible Sidebar */}
+        {/* Enhanced Collapsible Sidebar */}
         <CollapsibleSidebar
           isVisible={sidebarVisible}
           onToggle={() => setSidebarVisible(!sidebarVisible)}
@@ -449,99 +773,14 @@ export const Editor = (): ReactElement => {
             footerAlign={footerAlign}
             showPageNumbers={showPageNumbers}
             onPageClick={handlePageClick}
+            pages={currentPages}
           />
         </CollapsibleSidebar>
       </div>
 
       {/* Bottom trash drop target shown during drag */}
       <TrashBin />
-      
-      <style>{`
-  /* Footer bar spacing */
-  body {
-    padding-bottom: 60px;
-  }
 
-  /* Page shadow enhancement */
-  .shadow-2xl {
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(0, 0, 0, 0.05);
-  }
-
-  @media print {
-    body { margin: 0; padding: 0; }
-    .container { padding: 0; }
-    .fixed, header, aside { display: none !important; }
-    .shadow-lg, .shadow-2xl { box-shadow: none !important; }
-    @page { size: A4; margin: 20mm; }
-    .page-break { page-break-before: always; break-before: page; }
-  }
-
-  .ProseMirror { outline: none; line-height: 1.6; }
-  .ProseMirror p { margin: 1em 0; }
-
-  /* Headings */
-  .ProseMirror h1 { font-size: 2rem; line-height: 1.25; margin: 1.5rem 0 0.5rem; font-weight: 700; }
-  .ProseMirror h2 { font-size: 1.75rem; line-height: 1.3; margin: 1.4rem 0 0.5rem; font-weight: 700; }
-  .ProseMirror h3 { font-size: 1.5rem; line-height: 1.35; margin: 1.3rem 0 0.5rem; font-weight: 700; }
-  .ProseMirror h4 { font-size: 1.25rem; line-height: 1.4; margin: 1.2rem 0 0.5rem; font-weight: 700; }
-  .ProseMirror h5 { font-size: 1.125rem; line-height: 1.45; margin: 1.1rem 0 0.5rem; font-weight: 700; }
-  .ProseMirror h6 { font-size: 1rem; line-height: 1.5; margin: 1rem 0 0.5rem; font-weight: 700; }
-
-  /* Lists */
-  .ProseMirror ul { list-style: disc outside; padding-left: 1.5rem; margin: 0.5rem 0; }
-  .ProseMirror ol { list-style: decimal outside; padding-left: 1.5rem; margin: 0.5rem 0; }
-  .ProseMirror li { margin: 0.25rem 0; }
-
-  /* Task list */
-  .ProseMirror .task-list { list-style: none; padding-left: 0; margin: 0.5rem 0; }
-  .ProseMirror .task-list li { display: flex; align-items: center; gap: 0.5rem; margin: 0.35rem 0; }
-  .ProseMirror .task-list input[type="checkbox"] {
-    margin: 0; vertical-align: middle;
-    width: 1rem; height: 1rem; accent-color: #111111;
-  }
-
-  /* Code block */
-  .ProseMirror pre {
-    background: #f6f8fa;
-    border-radius: 0.5rem;
-    color: #24292e;
-    font-family: 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
-    margin: 1.5rem 0;
-    padding: 0.75rem 1rem;
-    white-space: pre;
-    overflow-x: auto;
-  }
-
-  /* Blockquote */
-  .ProseMirror blockquote {
-    border-left: 3px solid #d1d5db;
-    margin: 1.5rem 0;
-    padding-left: 1rem;
-    font-style: italic;
-  }
-
-  /* Links */
-  .ProseMirror a { color: #3b82f6; cursor: pointer; text-decoration: underline; }
-  .ProseMirror a:hover { color: #1d4ed8; }
-
-  /* Page break */
-  .page-break { position: relative; }
-
-  /* Paginated pages */
-  .paginated-page {
-    page-break-after: always;
-    break-after: page;
-  }
-
-  /* A4 shadow */
-  @media screen {
-    .paginated-page {
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
-                  0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
-  }
-      `}</style>
-      
       {/* Footer Bar */}
       <FooterBar
         currentPage={currentPage}
@@ -552,5 +791,5 @@ export const Editor = (): ReactElement => {
         onNextPage={handleNextPage}
       />
     </div>
-  );
-};
+  )
+}

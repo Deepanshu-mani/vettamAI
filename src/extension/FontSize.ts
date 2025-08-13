@@ -1,22 +1,43 @@
 import { Extension } from "@tiptap/core"
 
-export const FontSize = Extension.create({
+export type FontSizeOptions = {
+  types: string[]
+}
+
+declare module "@tiptap/core" {
+  interface Commands<ReturnType> {
+    fontSize: {
+      setFontSize: (fontSize: string) => ReturnType
+      unsetFontSize: () => ReturnType
+    }
+  }
+}
+
+export const FontSize = Extension.create<FontSizeOptions>({
   name: "fontSize",
+
+  addOptions() {
+    return {
+      types: ["textStyle"],
+    }
+  },
 
   addGlobalAttributes() {
     return [
       {
-        types: ["textStyle"],
+        types: this.options.types,
         attributes: {
           fontSize: {
-            default: null as string | null,
-            parseHTML: (element: HTMLElement) => {
-              const value = element.style.fontSize
-              return value || null
-            },
-            renderHTML: (attributes: { fontSize?: string | null }) => {
-              if (!attributes.fontSize) return {}
-              return { style: `font-size: ${attributes.fontSize}` }
+            default: null,
+            parseHTML: (element) => element.style.fontSize?.replace(/['"]+/g, ""),
+            renderHTML: (attributes) => {
+              if (!attributes.fontSize) {
+                return {}
+              }
+
+              return {
+                style: `font-size: ${attributes.fontSize}`,
+              }
             },
           },
         },
@@ -27,20 +48,15 @@ export const FontSize = Extension.create({
   addCommands() {
     return {
       setFontSize:
-        (fontSize: string) =>
-        ({ chain }) =>
-          chain().extendMarkRange("textStyle").setMark("textStyle", { fontSize }).run(),
-
+        (fontSize) =>
+        ({ chain }) => {
+          return chain().setMark("textStyle", { fontSize }).run()
+        },
       unsetFontSize:
         () =>
-        ({ chain }) =>
-          chain()
-            .extendMarkRange("textStyle")
-            .setMark("textStyle", { fontSize: null })
-            .removeEmptyTextStyle()
-            .run(),
+        ({ chain }) => {
+          return chain().setMark("textStyle", { fontSize: null }).removeEmptyTextStyle().run()
+        },
     }
   },
 })
-
-

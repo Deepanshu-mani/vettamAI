@@ -1,8 +1,10 @@
-import { createContext, useState } from 'react'
 
-type DragPayload =
-  | { type: 'page-break'; pos: number }
-  | null
+
+import type React from "react"
+
+import { createContext, useState } from "react"
+
+type DragPayload = { type: "page-break"; pos: number } | null
 
 interface TrashContextShape {
   isDragging: boolean
@@ -27,7 +29,7 @@ export const TrashContext = createContext<TrashContextShape>({
 export const TrashProvider = ({ children }: { children: React.ReactNode }) => {
   const [isDragging, setDragging] = useState(false)
   const [dragPayload, setDragPayload] = useState<DragPayload>(null)
-  const [onDropDelete, setOnDropDelete] = useState<TrashContextShape['onDropDelete']>(null)
+  const [onDropDelete, setOnDropDelete] = useState<TrashContextShape["onDropDelete"]>(null)
 
   return (
     <TrashContext.Provider

@@ -1,5 +1,5 @@
 
-import React from "react"
+import type React from "react"
 import { FileDown, Printer, Plus } from "lucide-react"
 
 interface EditorActionsProps {
@@ -8,11 +8,7 @@ interface EditorActionsProps {
   onPageBreak: () => void
 }
 
-export const EditorActions: React.FC<EditorActionsProps> = ({
-  onExport,
-  onPrint,
-  onPageBreak,
-}) => {
+export const EditorActions: React.FC<EditorActionsProps> = ({ onExport, onPrint, onPageBreak }) => {
   const ActionButton: React.FC<{
     onClick: () => void
     title: string

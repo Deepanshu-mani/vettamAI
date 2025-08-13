@@ -1,22 +1,23 @@
-import { Node, mergeAttributes } from '@tiptap/core';
-import { ReactNodeViewRenderer } from '@tiptap/react';
-import { PageBreakComponent } from '../components/PageBreak';
+import { Node, mergeAttributes } from "@tiptap/core"
+import { TextSelection } from "prosemirror-state"
+import { ReactNodeViewRenderer } from "@tiptap/react"
+import { PageBreakComponent } from "../components/PageBreak"
 
 export interface PageBreakOptions {
-  HTMLAttributes: Record<string, any>;
+  HTMLAttributes: Record<string, any>
 }
 
-declare module '@tiptap/core' {
+declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     pageBreak: {
-      setPageBreak: (attrs?: { auto?: boolean }) => ReturnType;
-    };
+      setPageBreak: (attrs?: { auto?: boolean }) => ReturnType
+    }
   }
 }
 
 export const PageBreak = Node.create<PageBreakOptions>({
-  name: 'pageBreak',
-  group: 'block',
+  name: "pageBreak",
+  group: "block",
   atom: true,
   selectable: true,
   draggable: true,
@@ -24,49 +25,65 @@ export const PageBreak = Node.create<PageBreakOptions>({
   addOptions() {
     return {
       HTMLAttributes: {},
-    };
+    }
   },
 
   addAttributes() {
     return {
       auto: {
         default: false,
-        parseHTML: element => element.getAttribute('data-auto') === 'true',
-        renderHTML: attributes => {
+        parseHTML: (element) => element.getAttribute("data-auto") === "true",
+        renderHTML: (attributes) => {
           if (!attributes.auto) return {}
-          return { 'data-auto': 'true' }
+          return { "data-auto": "true" }
         },
       },
     }
   },
 
   parseHTML() {
-    return [{ tag: 'div[data-type="page-break"]' }];
+    return [{ tag: 'div[data-type="page-break"]' }]
   },
 
   renderHTML({ HTMLAttributes, node }) {
     return [
-      'div',
+      "div",
       mergeAttributes(HTMLAttributes, {
-        'data-type': 'page-break',
-        class: 'page-break',
-        ...(node.attrs?.auto ? { 'data-auto': 'true' } : {}),
+        "data-type": "page-break",
+        class: "page-break",
+        ...(node.attrs?.auto ? { "data-auto": "true" } : {}),
       }),
-    ];
+    ]
   },
 
   addCommands() {
     return {
       setPageBreak:
         (attrs?: { auto?: boolean }) =>
-        ({ chain }) =>
-          chain().insertContent({ type: this.name, attrs: attrs ?? {} }).run(),
-    };
+        ({ tr, state, dispatch }) => {
+          const pageBreakNode = state.schema.nodes[this.name].create(attrs ?? {})
+
+          // Replace the current selection with page-break
+          tr = tr.replaceSelectionWith(pageBreakNode)
+
+          // Insert an empty paragraph after the page-break so the cursor can continue typing
+          const insertPos = tr.selection.from
+          const paragraph = state.schema.nodes.paragraph.create()
+          tr = tr.insert(insertPos, paragraph)
+
+          // Place the cursor inside the newly inserted paragraph
+          const selection = TextSelection.create(tr.doc, insertPos + 1)
+          tr = tr.setSelection(selection).scrollIntoView()
+
+          if (dispatch) dispatch(tr)
+          return true
+        },
+    }
   },
 
   addKeyboardShortcuts() {
     return {
-      'Mod-Enter': () => this.editor.commands.setPageBreak(),
+      "Mod-Enter": () => this.editor.commands.setPageBreak(),
       Delete: () => {
         const { state, view } = this.editor
         const sel: any = state.selection
@@ -85,10 +102,10 @@ export const PageBreak = Node.create<PageBreakOptions>({
         }
         return false
       },
-    };
+    }
   },
 
   addNodeView() {
-    return ReactNodeViewRenderer(PageBreakComponent);
+    return ReactNodeViewRenderer(PageBreakComponent)
   },
-});
+})

@@ -1,6 +1,9 @@
-import React, { useContext } from "react"
-import { Trash2 } from 'lucide-react'
+
+import type React from "react"
+import { useContext } from "react"
+import { Trash2 } from "lucide-react"
 import { TrashContext } from "../context/TextContext"
+
 export const TrashBin: React.FC = () => {
   const { isDragging } = useContext(TrashContext)
 

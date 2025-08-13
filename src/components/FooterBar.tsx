@@ -1,13 +1,14 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+
+import type React from "react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 interface FooterBarProps {
-  currentPage: number;
-  totalPages: number;
-  wordCount: number;
-  charCount: number;
-  onPreviousPage: () => void;
-  onNextPage: () => void;
+  currentPage: number
+  totalPages: number
+  wordCount: number
+  charCount: number
+  onPreviousPage: () => void
+  onNextPage: () => void
 }
 
 export const FooterBar: React.FC<FooterBarProps> = ({
@@ -55,5 +56,5 @@ export const FooterBar: React.FC<FooterBarProps> = ({
         </div>
       </div>
     </footer>
-  );
-};
+  )
+}
