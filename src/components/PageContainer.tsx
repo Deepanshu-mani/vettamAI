@@ -82,8 +82,8 @@ export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(
         }}
         data-page={pageNumber}
       >
-        {/* Page number indicator (only visible on screen) */}
-        <div className="absolute -top-6 right-0 text-xs text-gray-400 font-mono bg-gray-50 px-2 py-1 rounded print:hidden">
+        {/* Page number indicator (always visible on screen, bottom-right) */}
+        <div className="absolute bottom-3 right-6 text-xs text-gray-500 font-mono  px-2 py-1 rounded  print:hidden z-20">
           {pageNumber}
         </div>
 
@@ -204,11 +204,6 @@ export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(
               placeholder="Enter footer text... Use {pageNumber} and {totalPages} for dynamic values"
               className="text-gray-600 text-sm"
             />
-
-            {/* Default page number if no footer content */}
-            {!footerContent && (
-              <div className="absolute bottom-6 right-24 text-xs text-gray-400 font-mono">{pageNumber}</div>
-            )}
           </div>
         )}
       </div>

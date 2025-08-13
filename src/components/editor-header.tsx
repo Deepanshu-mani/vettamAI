@@ -36,8 +36,6 @@ interface EditorHeaderProps {
 
 export const EditorHeader: React.FC<EditorHeaderProps> = ({
   editor,
-  wordCount,
-  charCount,
   activeTab,
   headerEnabled,
   footerEnabled,
@@ -82,8 +80,6 @@ export const EditorHeader: React.FC<EditorHeaderProps> = ({
                       footerAlign={footerAlign}
                       showRuler={showRuler}
                       zoom={zoom}
-                      wordCount={wordCount}
-                      charCount={charCount}
                       onHeaderToggle={onHeaderToggle}
                       onFooterToggle={onFooterToggle}
                       onHeaderAlignChange={onHeaderAlignChange}

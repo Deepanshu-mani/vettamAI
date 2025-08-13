@@ -1,6 +1,6 @@
 
 import type React from "react"
-import { AlignLeft, AlignCenter, AlignRight, Ruler, ZoomIn, ZoomOut, Maximize, Droplets, Hash } from "lucide-react"
+import { AlignLeft, AlignCenter, AlignRight, Ruler, ZoomIn, ZoomOut, Maximize, RotateCcw } from "lucide-react"
 
 type Align = "start" | "center" | "end"
 
@@ -11,8 +11,6 @@ interface PageToolbarProps {
   footerAlign: Align
   showRuler: boolean
   zoom: number
-  wordCount: number
-  charCount: number
   onHeaderToggle: (enabled: boolean) => void
   onFooterToggle: (enabled: boolean) => void
   onHeaderAlignChange: (align: Align) => void
@@ -29,8 +27,6 @@ export const PageToolbar: React.FC<PageToolbarProps> = ({
   footerAlign,
   showRuler,
   zoom,
-  wordCount,
-  charCount,
   onHeaderToggle,
   onFooterToggle,
   onHeaderAlignChange,
@@ -106,22 +102,25 @@ export const PageToolbar: React.FC<PageToolbarProps> = ({
       <div className="flex items-center gap-1">
         <button
           type="button"
-          onClick={() => onZoomChange(Math.max(0.5, zoom - 0.1))}
+          onClick={() => onZoomChange(Math.max(0.3, parseFloat((zoom - 0.1).toFixed(2))))}
           className={btnBase}
           title="Zoom Out"
         >
           <ZoomOut size={18} />
         </button>
         <span className="px-2 py-1 text-sm text-gray-600 min-w-[60px] text-center">{Math.round(zoom * 100)}%</span>
-        <button type="button" onClick={() => onZoomChange(Math.min(2, zoom + 0.1))} className={btnBase} title="Zoom In">
+        <button type="button" onClick={() => onZoomChange(Math.min(2, parseFloat((zoom + 0.1).toFixed(2))))} className={btnBase} title="Zoom In">
           <ZoomIn size={18} />
+        </button>
+        <button type="button" onClick={() => onZoomChange(1)} className={btnBase} title="Reset Zoom">
+          <RotateCcw size={18} />
         </button>
         <button type="button" onClick={onFitToWidth} className={btnBase} title="Fit to Width">
           <Maximize size={18} />
         </button>
       </div>
 
-      <ToolbarSeparator />
+      {/* <ToolbarSeparator /> */}
 
       {/* Watermark Button */}
       {/* <button
@@ -133,15 +132,15 @@ export const PageToolbar: React.FC<PageToolbarProps> = ({
         <Droplets size={18} />
       </button> */}
 
-      <ToolbarSeparator />
+      {/* <ToolbarSeparator /> */}
 
       {/* Character Count */}
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg">
+      {/* <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded-lg">
         <Hash size={16} className="text-gray-500" />
         <span className="text-sm text-gray-600">
           {wordCount} words, {charCount} chars
         </span>
-      </div>
+      </div> */}
     </div>
   )
 }

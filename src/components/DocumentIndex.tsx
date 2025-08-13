@@ -72,7 +72,7 @@ export const DocumentIndex: React.FC<DocumentIndexProps> = ({ editorElement, onH
       {/* Enhanced Headings List */}
       <div className="flex-1 overflow-auto p-2">
         <div className="space-y-1">
-          {headings.map((heading, index) => (
+          {headings.map((heading) => (
             <button
               key={heading.id}
               onClick={() => onHeadingClick(heading.element)}

@@ -113,7 +113,7 @@ export const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
 
       {/* Enhanced Sidebar */}
       <aside
-        className={`fixed right-0 top-0 h-full w-[350px] bg-gradient-to-b from-white to-gray-50 border-l border-gray-200 shadow-2xl transform transition-all duration-300 ease-in-out z-20 ${
+        className={`fixed right-0 top-20 h-[calc(100vh-5rem)] w-[350px] bg-gradient-to-b from-white to-gray-50 border-l border-gray-200 shadow-2xl transform transition-all duration-300 ease-in-out z-20 ${
           isVisible ? "translate-x-0" : "translate-x-full"
         }`}
       >

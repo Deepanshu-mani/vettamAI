@@ -750,13 +750,6 @@ export const Editor = (): ReactElement => {
     }
   }
 
-  const handlePreviousPage = () => {
-    setCurrentPage(Math.max(1, currentPage - 1))
-  }
-
-  const handleNextPage = () => {
-    setCurrentPage(Math.min(pageCount, currentPage + 1))
-  }
 
   const handleHeadingClick = (element: HTMLElement) => {
     element.scrollIntoView({ behavior: "smooth", block: "center" })
@@ -942,8 +935,7 @@ export const Editor = (): ReactElement => {
         totalPages={pageCount}
         wordCount={wordCount}
         charCount={charCount}
-        onPreviousPage={handlePreviousPage}
-        onNextPage={handleNextPage}
+        sidebarVisible={sidebarVisible}
       />
     </div>
   )
