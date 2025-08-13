@@ -1,4 +1,5 @@
 
+
 import { forwardRef, useImperativeHandle, useEffect, useState, useCallback, useRef } from "react"
 import { type Editor, EditorContent } from "@tiptap/react"
 import { PageContainer } from "./PageContainer"
@@ -21,13 +22,7 @@ interface PaginatedEditorProps {
 
 export interface PaginatedEditorRef {
   updatePagination: () => void
-  getPages: () => string[]
   getCleanPages: () => string[]
-}
-
-interface PageContent {
-  content: string
-  height: number
 }
 
 export const PaginatedEditor = forwardRef<PaginatedEditorRef, PaginatedEditorProps>(
@@ -47,171 +42,103 @@ export const PaginatedEditor = forwardRef<PaginatedEditorRef, PaginatedEditorPro
     },
     ref,
   ) => {
-    const [pages, setPages] = useState<PageContent[]>([{ content: "", height: 0 }])
+    const [pages, setPages] = useState<string[]>([""])
     const containerRef = useRef<HTMLDivElement>(null)
     const editorRef = useRef<HTMLDivElement>(null)
-    const measurementRef = useRef<HTMLDivElement>(null)
 
-    // A4 dimensions in pixels (96 DPI)
-    const A4_WIDTH_PX = 794 // 210mm
-    const A4_HEIGHT_PX = 1123 // 297mm
+    // A4 dimensions in pixels (at 96 DPI)
+    const A4_WIDTH_PX = 210 * 3.78 // 210mm
+    const A4_HEIGHT_PX = 297 * 3.78 // 297mm
 
-    // Calculate available content height per page
+    // Calculate content area height (excluding header/footer)
     const getContentHeight = useCallback(() => {
-      const headerHeight = headerEnabled ? 80 : 0 // Header + padding
-      const footerHeight = footerEnabled ? 80 : 0 // Footer + padding
-      const topBottomMargins = 192 // 96px top + 96px bottom (1 inch each)
-
-      return A4_HEIGHT_PX - headerHeight - footerHeight - topBottomMargins
+      const headerHeight = headerEnabled ? 20 * 3.78 : 0 // 20mm
+      const footerHeight = footerEnabled ? 20 * 3.78 : 0 // 20mm
+      const padding = 64 * 3.78 // 64mm total vertical padding (increased from 32mm)
+      return A4_HEIGHT_PX - headerHeight - footerHeight - padding
     }, [headerEnabled, footerEnabled])
 
-    // Create measurement container for accurate height calculation
-    const createMeasurementContainer = useCallback(() => {
-      if (measurementRef.current) {
-        document.body.removeChild(measurementRef.current)
-      }
-
-      const container = document.createElement("div")
-      container.style.cssText = `
-        position: absolute;
-        left: -9999px;
-        top: -9999px;
-        width: ${A4_WIDTH_PX - 192}px;
-        font-family: 'Times New Roman', Times, serif;
-        font-size: 12pt;
-        line-height: 1.5;
-        color: #000;
-        visibility: hidden;
-        pointer-events: none;
-        padding: 0;
-        margin: 0;
-        border: none;
-        background: white;
-      `
-
-      // Apply the same styles as the actual editor content
-      container.className = "ProseMirror document-content"
-      document.body.appendChild(container)
-      measurementRef.current = container
-
-      return container
-    }, [A4_WIDTH_PX])
-
-    // Split content into pages based on height
-    const splitContentIntoPages = useCallback((htmlContent: string): PageContent[] => {
-      if (!htmlContent.trim()) {
-        return [{ content: "", height: 0 }]
-      }
-
-      // Handle manual page breaks first
-      const manualBreaks = htmlContent.split(/<div[^>]*data-type="page-break"[^>]*><\/div>/gi)
-
-      if (manualBreaks.length > 1) {
-        // Process each manual section
-        const allPages: PageContent[] = []
-
-        for (const section of manualBreaks) {
-          if (section.trim()) {
-            const sectionPages = splitSectionByHeight(section.trim())
-            allPages.push(...sectionPages)
-          }
-        }
-
-        return allPages.length > 0 ? allPages : [{ content: "", height: 0 }]
-      } else {
-        // No manual breaks, split by height only
-        return splitSectionByHeight(htmlContent)
-      }
-    }, [])
-
-    // Split a section of content by height
-    const splitSectionByHeight = useCallback(
-      (sectionContent: string): PageContent[] => {
-        const maxHeight = getContentHeight()
-        const measureContainer = createMeasurementContainer()
-
-        try {
-          // Parse the HTML content into elements
-          measureContainer.innerHTML = sectionContent
-          const elements = Array.from(measureContainer.children)
-
-          if (elements.length === 0) {
-            return [{ content: sectionContent, height: 0 }]
-          }
-
-          const pages: PageContent[] = []
-          let currentPageElements: Element[] = []
-          let currentHeight = 0
-
-          for (const element of elements) {
-            const elementHeight = (element as HTMLElement).offsetHeight
-
-            // Check if this element would exceed the page height
-            if (currentHeight + elementHeight > maxHeight && currentPageElements.length > 0) {
-              // Save current page
-              const pageContent = currentPageElements.map((el) => el.outerHTML).join("")
-              pages.push({ content: pageContent, height: currentHeight })
-
-              // Start new page with current element
-              currentPageElements = [element]
-              currentHeight = elementHeight
-            } else {
-              // Add element to current page
-              currentPageElements.push(element)
-              currentHeight += elementHeight
-            }
-          }
-
-          // Add the last page if it has content
-          if (currentPageElements.length > 0) {
-            const pageContent = currentPageElements.map((el) => el.outerHTML).join("")
-            pages.push({ content: pageContent, height: currentHeight })
-          }
-
-          return pages.length > 0 ? pages : [{ content: sectionContent, height: 0 }]
-        } catch (error) {
-          console.warn("Error splitting content by height:", error)
-          return [{ content: sectionContent, height: 0 }]
-        }
-      },
-      [getContentHeight, createMeasurementContainer],
-    )
-
-    // Main pagination update function
     const updatePagination = useCallback(() => {
-      if (!editor) return
+      if (!editor || !containerRef.current) return
 
-      const content = editor.getHTML()
-      const newPages = splitContentIntoPages(content)
+      const editorElement = editor.view.dom as HTMLElement
+      if (!editorElement) return
+
+      // Create a temporary container to measure content
+      const tempContainer = document.createElement("div")
+      tempContainer.style.position = "absolute"
+      tempContainer.style.left = "-9999px"
+      tempContainer.style.top = "-9999px"
+      tempContainer.style.width = `${(A4_WIDTH_PX - 64 * 3.78) * zoom}px` // Content width minus padding
+      tempContainer.style.fontSize = "16px"
+      tempContainer.style.lineHeight = "1.6"
+      tempContainer.style.padding = "32px" // Add padding to temp container
+      tempContainer.innerHTML = editor.getHTML()
+
+      document.body.appendChild(tempContainer)
+
+      const contentHeight = getContentHeight() * zoom
+      const newPages: string[] = []
+
+      // Simple pagination based on content height
+      const children = Array.from(tempContainer.children)
+      let currentPageContent = ""
+      let currentHeight = 0
+
+      for (const child of children) {
+        const childHeight = (child as HTMLElement).offsetHeight
+
+        if (currentHeight + childHeight > contentHeight && currentPageContent) {
+          // Start new page
+          newPages.push(currentPageContent)
+          currentPageContent = child.outerHTML
+          currentHeight = childHeight
+        } else {
+          currentPageContent += child.outerHTML
+          currentHeight += childHeight
+        }
+      }
+
+      // Add the last page
+      if (currentPageContent) {
+        newPages.push(currentPageContent)
+      }
+
+      // Ensure at least one page
+      if (newPages.length === 0) {
+        newPages.push(editor.getHTML())
+      }
+
+      document.body.removeChild(tempContainer)
 
       setPages(newPages)
       onPageCountChange(newPages.length)
-    }, [editor, splitContentIntoPages, onPageCountChange])
+    }, [editor, zoom, getContentHeight, onPageCountChange])
 
-    // Cleanup measurement container
-    useEffect(() => {
-      return () => {
-        if (measurementRef.current && document.body.contains(measurementRef.current)) {
-          document.body.removeChild(measurementRef.current)
-        }
-      }
-    }, [])
+    // Get clean pages for export/print
+    const getCleanPages = useCallback(() => {
+      return pages.filter((page) => {
+        // Remove empty pages and pages with only whitespace/empty elements
+        const tempDiv = document.createElement("div")
+        tempDiv.innerHTML = page
+        const textContent = tempDiv.textContent || tempDiv.innerText || ""
+        return textContent.trim().length > 0
+      })
+    }, [pages])
 
     // Expose methods
     useImperativeHandle(
       ref,
       () => ({
         updatePagination,
-        getPages: () => pages.map((p) => p.content),
-        getCleanPages: () =>
-          pages.map((p) => p.content.replace(/<div[^>]*data-type="page-break"[^>]*><\/div>/gi, "").trim()),
+        getCleanPages,
       }),
-      [updatePagination, pages],
+      [updatePagination, getCleanPages],
     )
 
     // Update pagination when dependencies change
     useEffect(() => {
-      const timeoutId = setTimeout(updatePagination, 200)
+      const timeoutId = setTimeout(updatePagination, 100)
       return () => clearTimeout(timeoutId)
     }, [updatePagination, zoom, headerEnabled, footerEnabled])
 
@@ -220,7 +147,7 @@ export const PaginatedEditor = forwardRef<PaginatedEditorRef, PaginatedEditorPro
       if (!editor) return
 
       const handleUpdate = () => {
-        const timeoutId = setTimeout(updatePagination, 150)
+        const timeoutId = setTimeout(updatePagination, 50)
         return () => clearTimeout(timeoutId)
       }
 
@@ -235,11 +162,24 @@ export const PaginatedEditor = forwardRef<PaginatedEditorRef, PaginatedEditorPro
 
     if (!editor) return null
 
+    const alignToStyle = (align: Align) => {
+      switch (align) {
+        case "start":
+          return "text-align: left;"
+        case "end":
+          return "text-align: right;"
+        case "center":
+          return "text-align: center;"
+        default:
+          return "text-align: left;"
+      }
+    }
+
     return (
-      <div ref={containerRef} className="space-y-8">
-        {pages.map((page, index) => (
+      <div ref={containerRef} className="space-y-6">
+        {pages.map((pageContent, index) => (
           <PageContainer
-            key={`page-${index}`}
+            key={index}
             pageNumber={index + 1}
             totalPages={pages.length}
             headerContent={headerContent}
@@ -252,10 +192,10 @@ export const PaginatedEditor = forwardRef<PaginatedEditorRef, PaginatedEditorPro
             onFooterChange={onFooterChange}
             zoom={zoom}
             className="paginated-page"
-            htmlContent={index === 0 ? undefined : page.content}
+            htmlContent={index === 0 ? undefined : pageContent}
           >
             {index === 0 ? (
-              <div ref={editorRef} className="editor-content h-full overflow-hidden">
+              <div ref={editorRef} className="p-8">
                 <EditorContent editor={editor} />
               </div>
             ) : null}
@@ -265,5 +205,3 @@ export const PaginatedEditor = forwardRef<PaginatedEditorRef, PaginatedEditorPro
     )
   },
 )
-
-PaginatedEditor.displayName = "PaginatedEditor"

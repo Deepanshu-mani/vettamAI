@@ -1,4 +1,4 @@
-
+ 
 
 import type React from "react"
 import { forwardRef } from "react"
@@ -56,14 +56,14 @@ export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(
       }
     }
 
-    // A4 dimensions in pixels (96 DPI: 1 inch = 96px, 1mm = 3.779527559px)
+    // A4 dimensions in pixels (96 DPI: 1mm = 3.779527559px)
     const A4_WIDTH_PX = 794 // 210mm = 794px
     const A4_HEIGHT_PX = 1123 // 297mm = 1123px
 
     return (
       <div
         ref={ref}
-        className={`page-container bg-white mx-auto relative print:shadow-none border border-gray-300 ${className}`}
+        className={`page-container bg-white mx-auto relative print:shadow-none border border-gray-200 ${className}`}
         style={{
           width: `${A4_WIDTH_PX}px`,
           height: `${A4_HEIGHT_PX}px`,
@@ -71,25 +71,46 @@ export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(
           maxWidth: `${A4_WIDTH_PX}px`,
           transform: `scale(${zoom})`,
           transformOrigin: "top center",
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.1)",
+          boxShadow: "0 4px 12px -2px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
           marginBottom: `${20 / zoom}px`,
           pageBreakAfter: "always",
           pageBreakInside: "avoid",
           display: "flex",
           flexDirection: "column",
-          overflow: "hidden", // Prevent content overflow
+          overflow: "hidden",
+          position: "relative",
         }}
         data-page={pageNumber}
       >
         {/* Page number indicator (only visible on screen) */}
-        <div className="absolute -top-8 right-0 text-xs text-gray-500 font-mono bg-white px-3 py-1 rounded border border-gray-200 print:hidden shadow-sm">
-          Page {pageNumber} of {totalPages}
+        <div className="absolute -top-6 right-0 text-xs text-gray-400 font-mono bg-gray-50 px-2 py-1 rounded print:hidden">
+          {pageNumber}
+        </div>
+
+        {/* A4 visual boundaries */}
+        <div className="absolute inset-0 pointer-events-none print:hidden opacity-30">
+          {/* Corner markers */}
+          <div className="absolute top-2 left-2 w-3 h-3 border-l-2 border-t-2 border-blue-300"></div>
+          <div className="absolute top-2 right-2 w-3 h-3 border-r-2 border-t-2 border-blue-300"></div>
+          <div className="absolute bottom-2 left-2 w-3 h-3 border-l-2 border-b-2 border-blue-300"></div>
+          <div className="absolute bottom-2 right-2 w-3 h-3 border-r-2 border-b-2 border-blue-300"></div>
+
+          {/* Margin guides */}
+          <div
+            className="absolute border border-dashed border-blue-200"
+            style={{
+              top: "96px",
+              left: "96px",
+              right: "96px",
+              bottom: "96px",
+            }}
+          ></div>
         </div>
 
         {/* Header */}
         {headerEnabled && (
           <div
-            className={`page-header px-12 pt-8 pb-4 border-b border-gray-200 print:border-gray-400 ${alignToClass(headerAlign)} flex-shrink-0`}
+            className={`page-header px-24 pt-12 pb-6 ${alignToClass(headerAlign)} flex-shrink-0 relative z-10`}
             style={{ minHeight: "80px" }}
           >
             <EditableHeaderFooter
@@ -106,32 +127,64 @@ export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(
 
         {/* Main Content Area */}
         <div
-          className="page-content flex-1"
+          className="page-content flex-1 relative"
           style={{
-            padding: "24px 96px", // 1 inch side margins, smaller top/bottom
+            padding: "32px 96px", // Increased from 24px to 32px for top/bottom
             fontSize: "12pt",
             lineHeight: "1.5",
             fontFamily: '"Times New Roman", Times, serif',
             color: "#000",
-            overflow: "hidden", // Prevent content overflow
+            overflow: "hidden",
+            width: "100%",
+            maxWidth: "100%",
+            boxSizing: "border-box",
             height:
               headerEnabled && footerEnabled
-                ? `${A4_HEIGHT_PX - 160}px` // Both header and footer
+                ? `${A4_HEIGHT_PX - 160}px` // Adjust for increased padding
                 : headerEnabled || footerEnabled
-                  ? `${A4_HEIGHT_PX - 80}px` // One header or footer
-                  : `${A4_HEIGHT_PX - 48}px`, // No header/footer
+                  ? `${A4_HEIGHT_PX - 96}px` // Adjust for increased padding
+                  : `${A4_HEIGHT_PX - 64}px`, // Adjust for increased padding
           }}
         >
           {children ? (
-            children
+            <div
+              style={{
+                width: "100%",
+                maxWidth: "100%",
+                wordWrap: "break-word",
+                overflowWrap: "break-word",
+                whiteSpace: "normal",
+                boxSizing: "border-box",
+              }}
+            >
+              {children}
+            </div>
           ) : htmlContent ? (
             <div
               dangerouslySetInnerHTML={{ __html: htmlContent }}
               className="document-content h-full overflow-hidden"
+              style={{
+                width: "100%",
+                maxWidth: "100%",
+                wordWrap: "break-word",
+                overflowWrap: "break-word",
+                whiteSpace: "normal",
+              }}
             />
           ) : (
-            <div className="text-gray-400 text-center py-8">
-              <p>Empty page</p>
+            <div className="text-gray-400 text-center py-16">
+              
+              <div className="flex flex-wrap justify-center gap-3">
+                <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600 transition-colors">
+                  📝 To-do List
+                </button>
+                <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600 transition-colors">
+                  ⚡ Notes
+                </button>
+                <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm text-gray-600 transition-colors">
+                  📋 Weekly Plan
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -139,7 +192,7 @@ export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(
         {/* Footer */}
         {footerEnabled && (
           <div
-            className={`page-footer px-12 pt-4 pb-8 border-t border-gray-200 print:border-gray-400 ${alignToClass(footerAlign)} relative flex-shrink-0`}
+            className={`page-footer px-24 pt-6 pb-12 ${alignToClass(footerAlign)} relative flex-shrink-0 z-10`}
             style={{ minHeight: "80px" }}
           >
             <EditableHeaderFooter
@@ -154,7 +207,7 @@ export const PageContainer = forwardRef<HTMLDivElement, PageContainerProps>(
 
             {/* Default page number if no footer content */}
             {!footerContent && (
-              <div className="absolute bottom-4 right-12 text-xs text-gray-500 font-mono">{pageNumber}</div>
+              <div className="absolute bottom-6 right-24 text-xs text-gray-400 font-mono">{pageNumber}</div>
             )}
           </div>
         )}

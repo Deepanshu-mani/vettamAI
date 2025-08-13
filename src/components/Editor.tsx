@@ -1,3 +1,4 @@
+ 
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import type { ReactElement } from "react"
@@ -22,7 +23,8 @@ import TaskList from "@tiptap/extension-task-list"
 import TaskItem from "@tiptap/extension-task-item"
 import Superscript from "@tiptap/extension-superscript"
 import Subscript from "@tiptap/extension-subscript"
-import { FontSize } from "@tiptap/extension-text-style"
+import Placeholder from "@tiptap/extension-placeholder"
+import { FontSize } from "../extension/FontSize"
 import { PageBreak } from "../extension/PageBreak"
 import { EditorHeader } from "./editor-header"
 import { TrashBin } from "./trash-bin"
@@ -33,8 +35,6 @@ import { PagePreviewPane } from "./page-preview-pane"
 import { PaginatedEditor, type PaginatedEditorRef } from "./PaginatedEditor"
 
 type Align = "start" | "center" | "end"
-
-// Sample content removed as requested
 
 export const Editor = (): ReactElement => {
   const [wordCount, setWordCount] = useState(0)
@@ -53,12 +53,10 @@ export const Editor = (): ReactElement => {
   const [activeTab, setActiveTab] = useState<"text" | "page">("text")
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [showRuler, setShowRuler] = useState(false)
-  const [zoom, setZoom] = useState(0.8) // Better default zoom for A4
+  const [zoom, setZoom] = useState(0.8)
 
-  const [headerHtml, setHeaderHtml] = useState(
-    "<p><strong>Professional Document - Page {pageNumber} of {totalPages}</strong></p>",
-  )
-  const [footerHtml, setFooterHtml] = useState("<p>© 2024 Document Footer • Page {pageNumber}</p>")
+  const [headerHtml, setHeaderHtml] = useState("Document Header - Page {pageNumber} of {totalPages}")
+  const [footerHtml, setFooterHtml] = useState("© 2024 Document Footer • Page {pageNumber}")
 
   const { setOnDropDelete, isDragging, dragPayload, onDropDelete } = useContext(TrashContext)
 
@@ -71,6 +69,11 @@ export const Editor = (): ReactElement => {
       StarterKit.configure({
         hardBreak: {
           keepMarks: false,
+        },
+        paragraph: {
+          HTMLAttributes: {
+            style: "margin: 12px 0; word-wrap: break-word; overflow-wrap: break-word; white-space: normal;",
+          },
         },
       }),
       TextAlign.configure({
@@ -143,6 +146,15 @@ export const Editor = (): ReactElement => {
           class: "my-4 border-gray-300",
         },
       }),
+      Placeholder.configure({
+        placeholder: ({ node }) => {
+          if (node.type.name === "heading") {
+            return "What's the title?"
+          }
+          return "Start typing here..."
+        },
+        includeChildren: true,
+      }),
       PageBreak,
     ],
     content: "",
@@ -161,8 +173,17 @@ export const Editor = (): ReactElement => {
     },
     editorProps: {
       attributes: {
-        class: "ProseMirror-content focus:outline-none max-w-none min-h-full",
+        class: "ProseMirror-content focus:outline-none max-w-none min-h-full prose prose-lg max-w-none",
         placeholder: "Start typing your document here...",
+      },
+      handleKeyDown: (view, event) => {
+        // Handle Ctrl/Cmd + Enter for page breaks
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          event.preventDefault()
+          editor?.chain().focus().setPageBreak().run()
+          return true
+        }
+        return false
       },
       handleDrop: (view, event, slice, moved) => {
         if (moved) {
@@ -193,7 +214,7 @@ export const Editor = (): ReactElement => {
     setPageCount(count)
   }, [])
 
-  // Enhanced drag-to-trash deletion behavior with better drop zone handling
+  // Enhanced drag-to-trash deletion behavior
   useEffect(() => {
     if (!editor) return
 
@@ -246,15 +267,49 @@ export const Editor = (): ReactElement => {
     }
   }, [onDropDelete, dragPayload])
 
-  const handlePrint = () => {
-    // Get clean pages for printing
-    const cleanPages = paginatedEditorRef.current?.getCleanPages() ?? [editor?.getHTML() ?? ""]
+  // Prevent scroll jumping after page breaks
+  useEffect(() => {
+    if (!editor) return
 
-    // Filter out empty pages
+    const handleTransaction = ({ transaction }: any) => {
+      // Check if a page break was inserted
+      if (transaction.docChanged) {
+        const steps = transaction.steps
+        for (const step of steps) {
+          if (step.slice && step.slice.content.toString().includes("pageBreak")) {
+            // Prevent automatic scrolling to bottom
+            setTimeout(() => {
+              const editorElement = editor.view.dom
+              const currentScrollTop = editorElement.scrollTop
+              editorElement.scrollTop = currentScrollTop
+            }, 0)
+            break
+          }
+        }
+      }
+    }
+
+    editor.on("transaction", handleTransaction)
+    return () => {
+      editor.off("transaction", handleTransaction)
+    }
+  }, [editor])
+
+  const handlePrint = () => {
+    if (!editor) return
+
+    // Get clean pages without empty content - FIXED
+    const cleanPages = paginatedEditorRef.current?.getCleanPages() ?? []
+
+    // Double filter to ensure no empty pages
     const nonEmptyPages = cleanPages.filter((content) => {
+      if (!content || !content.trim()) return false
+
       const tempDiv = document.createElement("div")
       tempDiv.innerHTML = content
       const textContent = tempDiv.textContent?.trim() || ""
+
+      // Must have actual text content (not just whitespace or HTML tags)
       return textContent.length > 0
     })
 
@@ -266,20 +321,43 @@ export const Editor = (): ReactElement => {
     const alignToStyle = (a: Align) =>
       a === "start" ? "text-align: left;" : a === "end" ? "text-align: right;" : "text-align: center;"
 
-    // Create clean HTML structure for printing with proper page numbers
     const printContent = nonEmptyPages
-      .map(
-        (content, i) => `
+      .map((content, i) => {
+        const pageNum = i + 1
+        const totalPages = nonEmptyPages.length
+
+        return `
         <div class="print-page">
-          ${headerEnabled ? `<div class="print-header" style="${alignToStyle(headerAlign)}">${headerHtml.replace(/\{pageNumber\}/g, (i + 1).toString()).replace(/\{totalPages\}/g, nonEmptyPages.length.toString())}</div>` : ""}
+          ${
+            headerEnabled
+              ? `
+            <div class="print-header" style="${alignToStyle(headerAlign)}">
+              ${headerHtml
+                .replace(/\{pageNumber\}/g, pageNum.toString())
+                .replace(/\{totalPages\}/g, totalPages.toString())}
+            </div>
+          `
+              : ""
+          }
+          
           <div class="print-content">${content}</div>
-          ${footerEnabled ? `<div class="print-footer" style="${alignToStyle(footerAlign)}">${footerHtml.replace(/\{pageNumber\}/g, (i + 1).toString()).replace(/\{totalPages\}/g, nonEmptyPages.length.toString())}</div>` : ""}
+          
+          ${
+            footerEnabled
+              ? `
+            <div class="print-footer" style="${alignToStyle(footerAlign)}">
+              ${footerHtml
+                .replace(/\{pageNumber\}/g, pageNum.toString())
+                .replace(/\{totalPages\}/g, totalPages.toString())}
+            </div>
+          `
+              : ""
+          }
         </div>
-      `,
-      )
+        `
+      })
       .join("")
 
-    // Create print styles
     const printStyles = `
       <style>
         @page {
@@ -287,121 +365,156 @@ export const Editor = (): ReactElement => {
           margin: 25.4mm;
         }
         
+        * {
+          box-sizing: border-box;
+        }
+        
         body {
-          font-family: 'Times New Roman', Times, serif;
-          font-size: 12pt;
-          line-height: 1.5;
-          color: #000;
-          margin: 0;
-          padding: 0;
+          font-family: 'Times New Roman', Times, serif !important;
+          font-size: 12pt !important;
+          line-height: 1.5 !important;
+          color: #000 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: white !important;
         }
         
         .print-page {
-          page-break-after: always;
-          page-break-inside: avoid;
-          min-height: 247mm;
-          display: flex;
-          flex-direction: column;
+          page-break-after: always !important;
+          page-break-inside: avoid !important;
+          break-after: page !important;
+          break-inside: avoid !important;
+          min-height: 100vh !important;
+          display: flex !important;
+          flex-direction: column !important;
+          position: relative !important;
         }
         
         .print-page:last-child {
-          page-break-after: auto;
+          page-break-after: auto !important;
+          break-after: auto !important;
         }
         
         .print-header {
-          min-height: 15.9mm;
-          padding-bottom: 6mm;
-          border-bottom: 1px solid #e5e7eb;
-          margin-bottom: 6mm;
+          padding-bottom: 6mm !important;
+          border-bottom: 1px solid #e5e7eb !important;
+          margin-bottom: 6mm !important;
+          flex-shrink: 0 !important;
         }
         
         .print-content {
-          flex: 1;
+          flex: 1 !important;
+          text-align: justify !important;
         }
         
         .print-footer {
-          min-height: 15.9mm;
-          padding-top: 6mm;
-          border-top: 1px solid #e5e7eb;
-          margin-top: 6mm;
-          position: relative;
+          padding-top: 6mm !important;
+          border-top: 1px solid #e5e7eb !important;
+          margin-top: 6mm !important;
+          flex-shrink: 0 !important;
         }
         
-        /* Typography */
-        h1 { font-size: 24pt; margin: 2em 0 1em; page-break-after: avoid; text-align: center; border-bottom: 2px solid #333; padding-bottom: 0.5em; }
-        h2 { font-size: 18pt; margin: 1.8em 0 0.8em; page-break-after: avoid; border-bottom: 1px solid #666; padding-bottom: 0.3em; }
-        h3 { font-size: 16pt; margin: 1.6em 0 0.6em; page-break-after: avoid; }
-        h4 { font-size: 14pt; margin: 1.4em 0 0.5em; }
-        h5 { font-size: 13pt; margin: 1.2em 0 0.4em; }
-        h6 { font-size: 12pt; margin: 1em 0 0.3em; font-style: italic; }
+        h1 { 
+          font-size: 24pt !important; 
+          margin: 1.5em 0 1em !important; 
+          page-break-after: avoid !important; 
+          text-align: center !important; 
+          border-bottom: 2px solid #333 !important; 
+          padding-bottom: 0.5em !important; 
+        }
+        h2 { 
+          font-size: 18pt !important; 
+          margin: 1.3em 0 0.8em !important; 
+          page-break-after: avoid !important; 
+          border-bottom: 1px solid #666 !important; 
+          padding-bottom: 0.3em !important; 
+        }
+        h3 { font-size: 16pt !important; margin: 1.2em 0 0.6em !important; page-break-after: avoid !important; }
+        h4 { font-size: 14pt !important; margin: 1.1em 0 0.5em !important; }
+        h5 { font-size: 13pt !important; margin: 1em 0 0.4em !important; }
+        h6 { font-size: 12pt !important; margin: 0.9em 0 0.3em !important; font-style: italic !important; }
         
-        p { margin: 1em 0; text-align: justify; orphans: 2; widows: 2; }
+        p { 
+          margin: 1em 0 !important; 
+          text-align: justify !important; 
+          orphans: 2 !important; 
+          widows: 2 !important; 
+        }
         
-        ul, ol { margin: 1em 0; padding-left: 1.5em; }
-        li { margin: 0.25em 0; }
+        ul, ol { margin: 1em 0 !important; padding-left: 1.5em !important; }
+        li { margin: 0.25em 0 !important; }
         
         blockquote {
-          border-left: 4px solid #3b82f6;
-          padding: 1em 1.5em;
-          margin: 1.5em 0;
-          font-style: italic;
-          background: #f8fafc;
-          border-radius: 0 0.375rem 0.375rem 0;
-          page-break-inside: avoid;
+          border-left: 4px solid #3b82f6 !important;
+          padding: 1em 1.5em !important;
+          margin: 1.5em 0 !important;
+          font-style: italic !important;
+          background: #f8fafc !important;
+          border-radius: 0 0.375rem 0.375rem 0 !important;
+          page-break-inside: avoid !important;
         }
         
         table {
-          border-collapse: collapse;
-          width: 100%;
-          margin: 1em 0;
-          page-break-inside: avoid;
-          font-size: 11pt;
+          border-collapse: collapse !important;
+          width: 100% !important;
+          margin: 1em 0 !important;
+          page-break-inside: avoid !important;
+          font-size: 11pt !important;
         }
         
         th, td {
-          border: 1px solid #d1d5db;
-          padding: 0.75em;
-          text-align: left;
+          border: 1px solid #d1d5db !important;
+          padding: 0.75em !important;
+          text-align: left !important;
         }
         
         th {
-          background: #f9fafb;
-          font-weight: 600;
+          background: #f9fafb !important;
+          font-weight: 600 !important;
         }
         
         tbody tr:nth-child(even) {
-          background: #f9fafb;
+          background: #f9fafb !important;
         }
         
         pre {
-          background: #f8f9fa;
-          padding: 1em;
-          border-radius: 0.25em;
-          overflow-x: auto;
-          page-break-inside: avoid;
+          background: #f8f9fa !important;
+          padding: 1em !important;
+          border-radius: 0.25em !important;
+          overflow-x: auto !important;
+          page-break-inside: avoid !important;
         }
         
         code {
-          background: #f1f5f9;
-          padding: 0.2em 0.4em;
-          border-radius: 0.25em;
-          font-size: 0.9em;
+          background: #f1f5f9 !important;
+          padding: 0.2em 0.4em !important;
+          border-radius: 0.25em !important;
+          font-size: 0.9em !important;
         }
         
         img {
-          max-width: 100%;
-          height: auto;
+          max-width: 100% !important;
+          height: auto !important;
         }
         
         .highlight-mark {
-          background-color: #fef3c7;
-          padding: 1px 2px;
-          border-radius: 2px;
+          background-color: #fef3c7 !important;
+          padding: 1px 2px !important;
+          border-radius: 2px !important;
+        }
+        
+        [data-type="page-break"],
+        .page-break {
+          display: none !important;
+        }
+        
+        /* Hide empty elements */
+        p:empty, div:empty {
+          display: none !important;
         }
       </style>
     `
 
-    // Create print window
     const printWindow = window.open("", "_blank")
     if (printWindow) {
       printWindow.document.write(`
@@ -419,7 +532,6 @@ export const Editor = (): ReactElement => {
       `)
       printWindow.document.close()
 
-      // Wait for content to load then print
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.print()
@@ -432,11 +544,11 @@ export const Editor = (): ReactElement => {
   const handleExport = () => {
     if (!editor) return
 
-    // Get clean pages for export
-    const cleanPages = paginatedEditorRef.current?.getCleanPages() ?? [editor.getHTML()]
+    const cleanPages = paginatedEditorRef.current?.getCleanPages() ?? []
 
-    // Filter out empty pages
     const nonEmptyPages = cleanPages.filter((content) => {
+      if (!content || !content.trim()) return false
+
       const tempDiv = document.createElement("div")
       tempDiv.innerHTML = content
       const textContent = tempDiv.textContent?.trim() || ""
@@ -451,7 +563,6 @@ export const Editor = (): ReactElement => {
     const alignToStyle = (a: Align) =>
       a === "start" ? "text-align: left;" : a === "end" ? "text-align: right;" : "text-align: center;"
 
-    // Create clean page structure with proper page numbers
     const pageHtml = nonEmptyPages
       .map(
         (content, i) => `
@@ -529,7 +640,6 @@ export const Editor = (): ReactElement => {
               .page { box-shadow: none; margin: 0; }
             }
             
-            /* Typography */
             h1 { font-size: 24pt; margin: 2em 0 1em; font-weight: 700; page-break-after: avoid; text-align: center; border-bottom: 2px solid #333; padding-bottom: 0.5em; }
             h2 { font-size: 18pt; margin: 1.8em 0 0.8em; font-weight: 700; page-break-after: avoid; border-bottom: 1px solid #666; padding-bottom: 0.3em; }
             h3 { font-size: 16pt; margin: 1.6em 0 0.6em; font-weight: 700; page-break-after: avoid; }
@@ -634,7 +744,7 @@ export const Editor = (): ReactElement => {
     if (editorContainerRef.current) {
       const container = editorContainerRef.current
       const containerWidth = container.clientWidth - 64
-      const pageWidth = 794 // A4 width in pixels
+      const pageWidth = 794
       const newZoom = Math.min(1.2, Math.max(0.3, containerWidth / pageWidth))
       setZoom(newZoom)
     }
@@ -701,33 +811,27 @@ export const Editor = (): ReactElement => {
 
       <div className="flex-1 overflow-hidden">
         <div className={`h-full transition-all duration-300 ${sidebarVisible ? "mr-[350px]" : ""}`}>
-          {/* Main editor area */}
           <main className="flex-1 overflow-auto bg-gray-100">
             <div ref={editorContainerRef} className="container mx-auto py-8 px-4">
-              {/* Enhanced Ruler */}
               {showRuler && (
                 <div
                   className="mb-6 h-10 bg-white border border-gray-300 rounded-lg relative overflow-hidden mx-auto shadow-sm"
                   style={{
-                    width: `${794 * zoom}px`, // A4 width
+                    width: `${794 * zoom}px`,
                     transform: `scale(${zoom})`,
                     transformOrigin: "center top",
                   }}
                 >
-                  {/* Horizontal ruler */}
                   <div className="absolute inset-0 flex border-b border-gray-200">
                     {Array.from({ length: 21 }, (_, i) => (
                       <div key={i} className="flex-1 border-r border-gray-300 relative">
                         <div className="absolute top-1 left-1 text-xs text-gray-500 font-mono">{i * 10}mm</div>
                         <div className="absolute bottom-0 left-1/2 w-px h-4 bg-gray-400"></div>
-                        {/* Minor ticks */}
                         <div className="absolute bottom-0 left-1/4 w-px h-2 bg-gray-300"></div>
                         <div className="absolute bottom-0 left-3/4 w-px h-2 bg-gray-300"></div>
                       </div>
                     ))}
                   </div>
-
-                  {/* Vertical ruler indicator */}
                   <div className="absolute right-0 top-0 w-8 h-full bg-gray-50 border-l border-gray-300 flex flex-col justify-between text-xs text-gray-500 font-mono py-1">
                     <span>0</span>
                     <span className="transform -rotate-90 origin-center">mm</span>
@@ -736,7 +840,6 @@ export const Editor = (): ReactElement => {
                 </div>
               )}
 
-              {/* Paginated Editor */}
               <PaginatedEditor
                 ref={paginatedEditorRef}
                 editor={editor}
@@ -755,7 +858,6 @@ export const Editor = (): ReactElement => {
           </main>
         </div>
 
-        {/* Enhanced Collapsible Sidebar */}
         <CollapsibleSidebar
           isVisible={sidebarVisible}
           onToggle={() => setSidebarVisible(!sidebarVisible)}
@@ -778,10 +880,63 @@ export const Editor = (): ReactElement => {
         </CollapsibleSidebar>
       </div>
 
-      {/* Bottom trash drop target shown during drag */}
       <TrashBin />
 
-      {/* Footer Bar */}
+      <style>{`
+        /* Blinking cursor animation */
+        .ProseMirror .ProseMirror-cursor-wrapper {
+          position: relative;
+        }
+        
+        .ProseMirror .ProseMirror-cursor {
+          position: absolute;
+          border-left: 1px solid #000;
+          border-right: 1px solid #000;
+          margin-left: -1px;
+          margin-right: -1px;
+          pointer-events: none;
+          animation: cursor-blink 1.2s infinite;
+        }
+        
+        @keyframes cursor-blink {
+          0%, 50% { opacity: 1; }
+          51%, 100% { opacity: 0; }
+        }
+        
+        /* Enhanced placeholder styling */
+        .ProseMirror p.is-editor-empty:first-child::before {
+          content: attr(data-placeholder);
+          float: left;
+          color: #9ca3af;
+          pointer-events: none;
+          height: 0;
+          font-style: italic;
+        }
+        
+        .ProseMirror .is-empty::before {
+          content: attr(data-placeholder);
+          float: left;
+          color: #9ca3af;
+          pointer-events: none;
+          height: 0;
+          font-style: italic;
+        }
+        
+        /* Focus styles */
+        .ProseMirror:focus {
+          outline: none;
+        }
+        
+        .ProseMirror-focused {
+          outline: none;
+        }
+        
+        /* Smooth scrolling */
+        .overflow-auto {
+          scroll-behavior: smooth;
+        }
+      `}</style>
+
       <FooterBar
         currentPage={currentPage}
         totalPages={pageCount}
